@@ -2702,6 +2702,7 @@ void PeerManagerImpl::UpdatePeerStateForReceivedHeaders(CNode& pfrom,
     // are still present, however, as belt-and-suspenders.
 
     if (received_new_header && pindexLast->nChainWork > m_chainman.ActiveChain().Tip()->nChainWork) {
+        LogPrint(BCLog::NET, "stacie - updating m_last_block_announcement for peer %d\n", pfrom.GetId());
         nodestate->m_last_block_announcement = GetTime();
     }
 
@@ -2744,6 +2745,7 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
                                             std::vector<CBlockHeader>&& headers,
                                             bool via_compact_block)
 {
+    LogPrint(BCLog::NET, "ProcessHeadersMessage() for peer %d\n", pfrom.GetId());
     size_t nCount = headers.size();
 
     if (nCount == 0) {
@@ -2858,6 +2860,9 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
     // If we don't have the last header, then this peer will have given us
     // something new (if these headers are valid).
     bool received_new_header{last_received_header == nullptr};
+    // TODO I can watch this flag flip by editing the line above, but it doesn't seem to be impacting eviction logic
+    // need to do some more debugging.
+    LogPrint(BCLog::NET, "stacie - received_new_header value: %d for peer %d\n", received_new_header, pfrom.GetId());
 
     // Now process all the headers.
     BlockValidationState state;
@@ -2878,10 +2883,12 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
         }
     }
 
+    LogPrint(BCLog::NET, "stacie - updating peer state for received new headers\n");
     UpdatePeerStateForReceivedHeaders(pfrom, pindexLast, received_new_header, nCount == MAX_HEADERS_RESULTS);
 
     // Consider immediately downloading blocks.
     HeadersDirectFetchBlocks(pfrom, peer, pindexLast);
+    LogPrint(BCLog::NET, "stacie - leaving net_processing.cpp ProcessHeadersMessage()\n");
 
     return;
 }
@@ -4986,6 +4993,7 @@ void PeerManagerImpl::ConsiderEviction(CNode& pto, Peer& peer, std::chrono::seco
 
 void PeerManagerImpl::EvictExtraOutboundPeers(std::chrono::seconds now)
 {
+    LogPrint(BCLog::NET, "\nstacie - IN METHOD TO EVICT EXTRA OUTBOUND PEERS\n\n");
     // If we have any extra block-relay-only peers, disconnect the youngest unless
     // it's given us a block -- in which case, compare with the second-youngest, and
     // out of those two, disconnect the peer who least recently gave us a block.
@@ -5031,8 +5039,10 @@ void PeerManagerImpl::EvictExtraOutboundPeers(std::chrono::seconds now)
         });
     }
 
+    LogPrint(BCLog::NET, "stacie - m_conman.GetExtraFullOutboundCount() - %d\n", m_connman.GetExtraFullOutboundCount());
     // Check whether we have too many outbound-full-relay peers
     if (m_connman.GetExtraFullOutboundCount() > 0) {
+        LogPrint(BCLog::NET, "stacie - too many outbound full relay!\n");
         // If we have more outbound-full-relay peers than we target, disconnect one.
         // Pick the outbound-full-relay peer that least recently announced
         // us a new block, with ties broken by choosing the more recent
@@ -5056,6 +5066,7 @@ void PeerManagerImpl::EvictExtraOutboundPeers(std::chrono::seconds now)
             }
         });
         if (worst_peer != -1) {
+            LogPrint(BCLog::NET, "stacie - net_processing.cpp EvictExtraOutboundPeers() found worst peer, %d\n", worst_peer);
             bool disconnected = m_connman.ForNode(worst_peer, [&](CNode* pnode) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
                 AssertLockHeld(::cs_main);
 
@@ -5089,6 +5100,8 @@ void PeerManagerImpl::EvictExtraOutboundPeers(std::chrono::seconds now)
 
 void PeerManagerImpl::CheckForStaleTipAndEvictPeers()
 {
+    LogPrint(BCLog::NET, "\nstacie - CHECKING FOR STALE TIP AND EVICTING EXTRA OUTBOUND PEERS\n\n");
+
     LOCK(cs_main);
 
     auto now{GetTime<std::chrono::seconds>()};
