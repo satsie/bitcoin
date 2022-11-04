@@ -2745,7 +2745,7 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
                                             std::vector<CBlockHeader>&& headers,
                                             bool via_compact_block)
 {
-    LogPrint(BCLog::NET, "ProcessHeadersMessage() for peer %d\n", pfrom.GetId());
+    LogPrint(BCLog::NET, "stacie - ProcessHeadersMessage() for peer %d\n", pfrom.GetId());
     size_t nCount = headers.size();
 
     if (nCount == 0) {
@@ -4993,7 +4993,7 @@ void PeerManagerImpl::ConsiderEviction(CNode& pto, Peer& peer, std::chrono::seco
 
 void PeerManagerImpl::EvictExtraOutboundPeers(std::chrono::seconds now)
 {
-    LogPrint(BCLog::NET, "\nstacie - IN METHOD TO EVICT EXTRA OUTBOUND PEERS\n\n");
+    LogPrint(BCLog::NET, "\nstacie - in EvictExtraOutboundPeers()\n\n");
     // If we have any extra block-relay-only peers, disconnect the youngest unless
     // it's given us a block -- in which case, compare with the second-youngest, and
     // out of those two, disconnect the peer who least recently gave us a block.
@@ -5100,8 +5100,6 @@ void PeerManagerImpl::EvictExtraOutboundPeers(std::chrono::seconds now)
 
 void PeerManagerImpl::CheckForStaleTipAndEvictPeers()
 {
-    LogPrint(BCLog::NET, "\nstacie - CHECKING FOR STALE TIP AND EVICTING EXTRA OUTBOUND PEERS\n\n");
-
     LOCK(cs_main);
 
     auto now{GetTime<std::chrono::seconds>()};
@@ -5109,15 +5107,25 @@ void PeerManagerImpl::CheckForStaleTipAndEvictPeers()
     EvictExtraOutboundPeers(now);
 
     if (now > m_stale_tip_check_time) {
+        LogPrint(BCLog::NET, "\n\nstacie - stale tip detected !!!\n\n");
         // Check whether our tip is stale, and if so, allow using an extra
         // outbound peer
+        LogPrint(BCLog::NET, "\n\nstacie - !fImporting = %d\n\n", !fImporting);
+        LogPrint(BCLog::NET, "\n\nstacie - !fReindex = %d\n\n", !fReindex);
+        LogPrint(BCLog::NET, "\n\nstacie - m_connman.GetNetworkActive() = %d\n\n", m_connman.GetNetworkActive());
+        LogPrint(BCLog::NET, "\n\nstacie - m_connman.GetUseAddrmanOutgoing() = %d\n\n", m_connman.GetUseAddrmanOutgoing());
+        LogPrint(BCLog::NET, "\n\nstacie - TipMayBeStale() = %d\n\n", TipMayBeStale());
+
         if (!fImporting && !fReindex && m_connman.GetNetworkActive() && m_connman.GetUseAddrmanOutgoing() && TipMayBeStale()) {
             LogPrintf("Potential stale tip detected, will try using extra outbound peer (last tip update: %d seconds ago)\n",
                       count_seconds(now - m_last_tip_update.load()));
             m_connman.SetTryNewOutboundPeer(true);
+            LogPrint(BCLog::NET, "\nstacie - set m_try_another_outbound_peer to TRUE\n\n");
         } else if (m_connman.GetTryNewOutboundPeer()) {
             m_connman.SetTryNewOutboundPeer(false);
+            LogPrint(BCLog::NET, "\nstacie - set m_try_another_outbound_peer to FALSE\n\n");
         }
+        LogPrint(BCLog::NET, "\nstacie - advancing m_stale_tip_check_time\n\n");
         m_stale_tip_check_time = now + STALE_CHECK_INTERVAL;
     }
 

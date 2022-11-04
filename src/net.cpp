@@ -1723,6 +1723,7 @@ void CConnman::ThreadOpenConnections(const std::vector<std::string> connect)
         } else if (nOutboundBlockRelay < m_max_outbound_block_relay) {
             conn_type = ConnectionType::BLOCK_RELAY;
         } else if (GetTryNewOutboundPeer()) {
+            LogPrint(BCLog::NET, "\nstacie - ThreadOpenConnections() defaulting to FULL_OUTBOUND_RELAY\n\n");
             // OUTBOUND_FULL_RELAY
         } else if (now > next_extra_block_relay && m_start_extra_block_relay_peers) {
             // Periodically connect to a peer (using regular outbound selection

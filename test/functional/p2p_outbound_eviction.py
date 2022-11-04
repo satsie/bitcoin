@@ -8,6 +8,7 @@
 When the number of peers has reached the limit of maximum connections,
 the next outbound peer connection will trigger the eviction mechanism.
 """
+import time
 
 from test_framework.blocktools import (
     create_block,
@@ -77,15 +78,29 @@ class P2PEvictOutbound(BitcoinTestFramework):
             self.log.info("peer {} sent block. iterating again".format(i))
             i = i + 1
 
+        self.log.info("advancing time by 11 min to make the tip stale")
+        now = int(time.time())
+        eleven_min = 11 * 60
+        node.setmocktime(now + eleven_min)
+
+        self.log.info("sleeping for 60 seconds to give the scheduled CheckForStaleTipAndEvictPeers() a chance to run")
+        time.sleep(60)
+
         # Add an extra outbound connection using the test only addconnection RPC
         current_peer_index += 1
-        ip_port = "127.0.0.1:{}".format(p2p_port(current_peer_index))
-        # TODO I know I'm not invoking this quite right
-        # test_framework.authproxy.JSONRPCException: Error: Already at capacity for specified connection type. (-34)
-        #node.addconnection('%s:%d' % ('127.0.0.1', 9), 'outbound-full-relay')
 
-        # other option: addnode RPC. This doesn't seem to do anything so I'm not sure if I'm calling it correctly.
-        node.addnode(node=ip_port, command='add')
+        # TODO this doesn't work because the m_connman.GetUseAddrmanOutgoing() check in CheckForStaleTipAndEvictPeers()
+        # is evaluating to false
+        # From Larry: "The problem is that this extra OB peer can only come from the addrman, and the node needs to be
+        # able to connect to it, but the test framework doesn't provide a way to set this up."
+
+        # This code returns the following error:
+        # test_framework.authproxy.JSONRPCException: Error: Already at capacity for specified connection type. (-34)
+        node.addconnection('%s:%d' % ('127.0.0.1', 9), 'outbound-full-relay')
+
+        # other option: addnode RPC.
+        # ip_port = "127.0.0.1:{}".format(p2p_port(current_peer_index))
+        # node.addnode(node=ip_port, command='add')
 
         # Check to see which node was evicted
         evicted_peers = []
@@ -93,12 +108,11 @@ class P2PEvictOutbound(BitcoinTestFramework):
             if not node.p2ps[i].is_connected:
                 evicted_peers.append(i)
 
-        # TODO assertions on the peer that was evicted/peer that wasn't evicted
         self.log.info("Test that one peer was evicted")
-        self.log.info("{} evicted peer: {}".format(len(evicted_peers), set(evicted_peers)))
+        self.log.info("{} evicted peer(s): {}".format(len(evicted_peers), set(evicted_peers)))
         assert_equal(len(evicted_peers), 1)
 
-        self.log.info("Test that no peer expected to be protected was evicted")
+        self.log.info("Test that no protected peers were evicted")
         self.log.info("{} protected peers: {}".format(len(protected_peers), protected_peers))
         assert evicted_peers[0] not in protected_peers
 
