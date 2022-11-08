@@ -649,7 +649,7 @@ void CNode::CopyStats(CNodeStats& stats)
 }
 #undef X
 
-bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete)
+bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize mapBytesPerMsg)
 {
     complete = false;
     const auto time = GetTime<std::chrono::microseconds>();
@@ -683,6 +683,15 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete)
             }
             assert(i != mapRecvBytesPerMsgType.end());
             i->second += msg.m_raw_message_size;
+
+            auto j = mapBytesPerMsg.find(msg.m_type);
+            if (j == mapBytesPerMsg.end()) {
+                j = mapBytesPerMsg.find(NET_MESSAGE_TYPE_OTHER);
+            }
+            assert(j != mapBytesPerMsg.end());
+            i->second += msg.m_raw_message_size;
+
+            LogPrint(BCLog::NET, "\n\nstacie - added byte count of %d for message type: %s\n\n", msg.m_raw_message_size, msg.m_type);
 
             // push the message to the process queue,
             vRecvMsg.push_back(std::move(msg));
@@ -1298,10 +1307,20 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
             if (nBytes > 0)
             {
                 bool notify = false;
-                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify)) {
+                mapMsgTypeSize mapBytesPerMsg;
+                for (const std::string &msg : getAllNetMessageTypes())
+                    mapBytesPerMsg[msg] = 0;
+                mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
+
+                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, mapBytesPerMsg)) {
                     pnode->CloseSocketDisconnect();
                 }
                 RecordBytesRecv(nBytes);
+                LogPrint(BCLog::NET, "\n\nstacie - recorded bytes received (nBytes): %d\n\n", nBytes);
+
+                // TODO put a map on CConman that mirror's CNode::mapRecvBytesPerMsgType and CNode::mapSendBytesPerMsgType
+                // and update it here. We have the stats per CNode but since peers come and go, it's not reliable.
+                RecordBytesRecvByMsgType(mapBytesPerMsg);
                 if (notify) {
                     size_t nSizeAdded = 0;
                     auto it(pnode->vRecvMsg.begin());
@@ -2617,6 +2636,22 @@ bool CConnman::DisconnectNode(NodeId id)
     return false;
 }
 
+void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize mapBytesPerMsg) {
+    for (auto const& bytesPerMsg : mapBytesPerMsg) {
+
+        auto i = mapRecvBytesPerMsgType.find(bytesPerMsg.first);
+        if (i == mapRecvBytesPerMsgType.end()) {
+            i = mapRecvBytesPerMsgType.find(NET_MESSAGE_TYPE_OTHER);
+        }
+
+        assert(i != mapRecvBytesPerMsgType.end());
+        // TODO based on some log messages, this seems okay but
+        // I'm wondering what the differenc is between this and msg_m_raw_message_size
+        // i->second += msg.m_raw_message_size;
+        i->second += bytesPerMsg.second;
+    }
+}
+
 void CConnman::RecordBytesRecv(uint64_t bytes)
 {
     nTotalBytesRecv += bytes;
@@ -2708,6 +2743,11 @@ uint64_t CConnman::GetOutboundTargetBytesLeft() const
 uint64_t CConnman::GetTotalBytesRecv() const
 {
     return nTotalBytesRecv;
+}
+
+mapMsgTypeSize CConnman::GetTotalBytesRecvByMsg() const
+{
+    return mapRecvBytesPerMsgType;
 }
 
 uint64_t CConnman::GetTotalBytesSent() const

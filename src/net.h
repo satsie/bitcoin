@@ -550,10 +550,12 @@ public:
      * @param[in]   msg_bytes   The raw data
      * @param[out]  complete    Set True if at least one message has been
      *                          deserialized and is ready to be processed
+     * @param[out]  mapBytesPerMsg   A map of message types mapped to the
+     *                               number of bytes
      * @return  True if the peer should stay connected,
      *          False if the peer should be disconnected from.
      */
-    bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
+    bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize mapBytesPerMsg) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
 
     void SetCommonVersion(int greatest_common_version)
     {
@@ -722,6 +724,10 @@ public:
             m_added_nodes = connOptions.m_added_nodes;
         }
         m_onion_binds = connOptions.onion_binds;
+
+        for (const std::string &msg : getAllNetMessageTypes())
+            mapRecvBytesPerMsgType[msg] = 0;
+        mapRecvBytesPerMsgType[NET_MESSAGE_TYPE_OTHER] = 0;
     }
 
     CConnman(uint64_t seed0, uint64_t seed1, AddrMan& addrman, const NetGroupManager& netgroupman,
@@ -851,6 +857,7 @@ public:
     std::chrono::seconds GetMaxOutboundTimeLeftInCycle() const EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
 
     uint64_t GetTotalBytesRecv() const;
+    mapMsgTypeSize GetTotalBytesRecvByMsg() const;
     uint64_t GetTotalBytesSent() const EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
 
     /** Get a unique deterministic randomizer. */
@@ -967,6 +974,7 @@ private:
 
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
+    void RecordBytesRecvByMsgType(mapMsgTypeSize mapBytesPerMsg);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
 
     /**
@@ -981,6 +989,7 @@ private:
     mutable Mutex m_total_bytes_sent_mutex;
     std::atomic<uint64_t> nTotalBytesRecv{0};
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
+    mapMsgTypeSize mapRecvBytesPerMsgType;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};

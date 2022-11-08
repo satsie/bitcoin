@@ -62,9 +62,9 @@ void ConnmanTestMsg::Handshake(CNode& node,
     }
 }
 
-void ConnmanTestMsg::NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete) const
+void ConnmanTestMsg::NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize mapBytesPerMsg) const
 {
-    assert(node.ReceiveMsgBytes(msg_bytes, complete));
+    assert(node.ReceiveMsgBytes(msg_bytes, complete, mapBytesPerMsg));
     if (complete) {
         size_t nSizeAdded = 0;
         auto it(node.vRecvMsg.begin());
@@ -88,8 +88,19 @@ bool ConnmanTestMsg::ReceiveMsgFrom(CNode& node, CSerializedNetMsg& ser_msg) con
     node.m_serializer->prepareForTransport(ser_msg, ser_msg_header);
 
     bool complete;
-    NodeReceiveMsgBytes(node, ser_msg_header, complete);
-    NodeReceiveMsgBytes(node, ser_msg.data, complete);
+    
+    mapMsgTypeSize mapBytesPerMsg;
+    for (const std::string &msg : getAllNetMessageTypes())
+        mapBytesPerMsg[msg] = 0;
+    mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
+
+    NodeReceiveMsgBytes(node, ser_msg_header, complete, mapBytesPerMsg);
+
+    for (const std::string &msg : getAllNetMessageTypes())
+        mapBytesPerMsg[msg] = 0;
+    mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
+
+    NodeReceiveMsgBytes(node, ser_msg.data, complete, mapBytesPerMsg);
     return complete;
 }
 

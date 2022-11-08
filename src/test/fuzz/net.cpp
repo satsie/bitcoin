@@ -61,7 +61,13 @@ FUZZ_TARGET_INIT(net, initialize_net)
             [&] {
                 const std::vector<uint8_t> b = ConsumeRandomLengthByteVector(fuzzed_data_provider);
                 bool complete;
-                node.ReceiveMsgBytes(b, complete);
+
+                mapMsgTypeSize mapBytesPerMsg;
+                for (const std::string &msg : getAllNetMessageTypes())
+                    mapBytesPerMsg[msg] = 0;
+                mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
+
+                node.ReceiveMsgBytes(b, complete, mapBytesPerMsg);
             });
     }
 
