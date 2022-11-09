@@ -538,56 +538,34 @@ static RPCHelpMan getnettotals()
     NodeContext& node = EnsureAnyNodeContext(request.context);
     const CConnman& connman = EnsureConnman(node);
 
-    mapMsgTypeSize bytesSentPerMsg;
-    bytesSentPerMsg["addrv2"] = 0;
-    bytesSentPerMsg["feefilter"] = 0;
-    bytesSentPerMsg["getaddr"] = 0;
-    bytesSentPerMsg["getdata"] = 0;
-    bytesSentPerMsg["getheaders"] = 0;
-    bytesSentPerMsg["headers"] = 0;
-    bytesSentPerMsg["inv"] = 0;
-    bytesSentPerMsg["notfound"] = 0;
-    bytesSentPerMsg["ping"] = 0;
-    bytesSentPerMsg["pong"] = 0;
-    bytesSentPerMsg["sendaddrv2"] = 0;
-    bytesSentPerMsg["sendcmpct"] = 0;
-    bytesSentPerMsg["sendheaders"] = 0;
-    bytesSentPerMsg["tx"] = 0;
-    bytesSentPerMsg["verack"] = 0;
-    bytesSentPerMsg["version"] = 0;
-    bytesSentPerMsg["wtxidrelay"] = 0;
+    mapMsgTypeSize bytesRecvPerMsg;
+    bytesRecvPerMsg["addrv2"] = 0;
+    bytesRecvPerMsg["feefilter"] = 0;
+    bytesRecvPerMsg["getaddr"] = 0;
+    bytesRecvPerMsg["getdata"] = 0;
+    bytesRecvPerMsg["getheaders"] = 0;
+    bytesRecvPerMsg["headers"] = 0;
+    bytesRecvPerMsg["inv"] = 0;
+    bytesRecvPerMsg["notfound"] = 0;
+    bytesRecvPerMsg["ping"] = 0;
+    bytesRecvPerMsg["pong"] = 0;
+    bytesRecvPerMsg["sendaddrv2"] = 0;
+    bytesRecvPerMsg["sendcmpct"] = 0;
+    bytesRecvPerMsg["sendheaders"] = 0;
+    bytesRecvPerMsg["tx"] = 0;
+    bytesRecvPerMsg["verack"] = 0;
+    bytesRecvPerMsg["version"] = 0;
+    bytesRecvPerMsg["wtxidrelay"] = 0;
 
     std::vector<CNodeStats> vstats;
     connman.GetNodeStats(vstats);
     mapMsgTypeSize totalBytesRecvByMsg = connman.GetTotalBytesRecvByMsg();
     LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] got a CNodeStats vector (vstats), going to iterate over it\n\n");
 
-    // TODO finish filling this in for totalBytesRecvByMsg
-
-    for (const CNodeStats& peerStats : vstats) {
-        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] printing stats per message type for this peer\n\n");
-
-        mapMsgTypeSize statsPerMsgType = peerStats.mapRecvBytesPerMsgType;
-        for (const auto& msgStats : statsPerMsgType) {
-                LogPrint(BCLog::NET, "\nstacie - [getnettotals] key: %s, value: %d", msgStats.first, msgStats.second);
-        }
-        bytesSentPerMsg["addrv2"] += statsPerMsgType["addrv2"];
-        bytesSentPerMsg["feefilter"] += statsPerMsgType["feefilter"];
-        bytesSentPerMsg["getaddr"] += statsPerMsgType["getaddr"];
-        bytesSentPerMsg["getdata"] += statsPerMsgType["getdata"];
-        bytesSentPerMsg["getheaders"] += statsPerMsgType["getheaders"];
-        bytesSentPerMsg["headers"] += statsPerMsgType["headers"];
-        bytesSentPerMsg["inv"] += statsPerMsgType["inv"];
-        bytesSentPerMsg["notfound"] += statsPerMsgType["notfound"];
-        bytesSentPerMsg["ping"] += statsPerMsgType["ping"];
-        bytesSentPerMsg["pong"] += statsPerMsgType["pong"];
-        bytesSentPerMsg["sendaddrv2"] += statsPerMsgType["sendaddrv2"];
-        bytesSentPerMsg["sendcmpct"] += statsPerMsgType["sendcmpct"];
-        bytesSentPerMsg["sendheaders"] += statsPerMsgType["sendheaders"];
-        bytesSentPerMsg["tx"] += statsPerMsgType["tx"];
-        bytesSentPerMsg["verack"] += statsPerMsgType["verack"];
-        bytesSentPerMsg["version"] += statsPerMsgType["version"];
-        bytesSentPerMsg["wtxidrelay"] += statsPerMsgType["wtxidrelay"];
+    for (const auto& bytesRecvByMsg : totalBytesRecvByMsg) {
+        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] looking at %d bytes for message type %s\n\n",
+        bytesRecvByMsg.second, bytesRecvByMsg.first);
+        bytesRecvPerMsg[bytesRecvByMsg.first] += bytesRecvByMsg.second;
     }
 
     UniValue obj(UniValue::VOBJ);
@@ -595,23 +573,23 @@ static RPCHelpMan getnettotals()
     obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
 
     UniValue bytesSentPerMsgReturnObj(UniValue::VOBJ);
-    bytesSentPerMsgReturnObj.pushKV("addrv2", bytesSentPerMsg["addrv2"]);
-    bytesSentPerMsgReturnObj.pushKV("feefilter", bytesSentPerMsg["feefilter"]);
-    bytesSentPerMsgReturnObj.pushKV("getaddr", bytesSentPerMsg["getaddr"]);
-    bytesSentPerMsgReturnObj.pushKV("getdata", bytesSentPerMsg["getdata"]);
-    bytesSentPerMsgReturnObj.pushKV("getheaders", bytesSentPerMsg["getheaders"]);
-    bytesSentPerMsgReturnObj.pushKV("headers", bytesSentPerMsg["headers"]);
-    bytesSentPerMsgReturnObj.pushKV("inv", bytesSentPerMsg["inv"]);
-    bytesSentPerMsgReturnObj.pushKV("notfound", bytesSentPerMsg["notfound"]);
-    bytesSentPerMsgReturnObj.pushKV("ping", bytesSentPerMsg["ping"]);
-    bytesSentPerMsgReturnObj.pushKV("pong", bytesSentPerMsg["pong"]);
-    bytesSentPerMsgReturnObj.pushKV("sendaddrv2", bytesSentPerMsg["sendaddrv2"]);
-    bytesSentPerMsgReturnObj.pushKV("sendcmpct", bytesSentPerMsg["sendcmpct"]);
-    bytesSentPerMsgReturnObj.pushKV("sendheaders", bytesSentPerMsg["sendheaders"]);
-    bytesSentPerMsgReturnObj.pushKV("tx", bytesSentPerMsg["tx"]);
-    bytesSentPerMsgReturnObj.pushKV("verack", bytesSentPerMsg["verack"]);
-    bytesSentPerMsgReturnObj.pushKV("version", bytesSentPerMsg["version"]);
-    bytesSentPerMsgReturnObj.pushKV("wtxidrelay", bytesSentPerMsg["wtxidrelay"]);
+    bytesSentPerMsgReturnObj.pushKV("addrv2", bytesRecvPerMsg["addrv2"]);
+    bytesSentPerMsgReturnObj.pushKV("feefilter", bytesRecvPerMsg["feefilter"]);
+    bytesSentPerMsgReturnObj.pushKV("getaddr", bytesRecvPerMsg["getaddr"]);
+    bytesSentPerMsgReturnObj.pushKV("getdata", bytesRecvPerMsg["getdata"]);
+    bytesSentPerMsgReturnObj.pushKV("getheaders", bytesRecvPerMsg["getheaders"]);
+    bytesSentPerMsgReturnObj.pushKV("headers", bytesRecvPerMsg["headers"]);
+    bytesSentPerMsgReturnObj.pushKV("inv", bytesRecvPerMsg["inv"]);
+    bytesSentPerMsgReturnObj.pushKV("notfound", bytesRecvPerMsg["notfound"]);
+    bytesSentPerMsgReturnObj.pushKV("ping", bytesRecvPerMsg["ping"]);
+    bytesSentPerMsgReturnObj.pushKV("pong", bytesRecvPerMsg["pong"]);
+    bytesSentPerMsgReturnObj.pushKV("sendaddrv2", bytesRecvPerMsg["sendaddrv2"]);
+    bytesSentPerMsgReturnObj.pushKV("sendcmpct", bytesRecvPerMsg["sendcmpct"]);
+    bytesSentPerMsgReturnObj.pushKV("sendheaders", bytesRecvPerMsg["sendheaders"]);
+    bytesSentPerMsgReturnObj.pushKV("tx", bytesRecvPerMsg["tx"]);
+    bytesSentPerMsgReturnObj.pushKV("verack", bytesRecvPerMsg["verack"]);
+    bytesSentPerMsgReturnObj.pushKV("version", bytesRecvPerMsg["version"]);
+    bytesSentPerMsgReturnObj.pushKV("wtxidrelay", bytesRecvPerMsg["wtxidrelay"]);
     obj.pushKV("bytessent_per_msg", bytesSentPerMsgReturnObj);
 
     obj.pushKV("timemillis", GetTimeMillis());
