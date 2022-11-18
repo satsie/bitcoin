@@ -523,6 +523,12 @@ static RPCHelpMan getnettotals()
                                                       "When a message type is not listed in this json object, the bytes received are 0.\n"
                                                       "Only known message types can appear as keys in the object."}
                        }},
+                       {RPCResult::Type::OBJ_DYN, "bytessent_per_msg", "",
+                       {
+                        {RPCResult::Type::NUM, "msg", "The total bytes sent aggregated by message type\n"
+                                                      "When a message type is not listed in this json object, the bytes sent are 0.\n"
+                                                      "Only known message types can appear as keys in the object."}
+                       }},
                        {RPCResult::Type::NUM_TIME, "timemillis", "Current " + UNIX_EPOCH_TIME + " in milliseconds"},
                        {RPCResult::Type::OBJ, "uploadtarget", "",
                        {
@@ -546,22 +552,31 @@ static RPCHelpMan getnettotals()
 
     std::vector<CNodeStats> vstats;
     connman.GetNodeStats(vstats);
-    mapMsgTypeSize totalBytesRecvByMsg = connman.GetTotalBytesRecvByMsg();
-    LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] got a CNodeStats vector (vstats), going to iterate over it\n\n");
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
     obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
 
+    mapMsgTypeSize totalBytesRecvPerMsg = connman.GetTotalBytesRecvPerMsg();
     UniValue bytesRecvPerMsg(UniValue::VOBJ);
-    for (const auto& i : totalBytesRecvByMsg) {
-        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] looking at %d bytes for message type %s\n\n",
+    for (const auto& i : totalBytesRecvPerMsg) {
+        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] looking at %d received bytes for message type %s\n\n",
             i.second, i.first);
         if (i.second > 0)
             bytesRecvPerMsg.pushKV(i.first, i.second);
     }
-
     obj.pushKV("bytesrecv_per_msg", bytesRecvPerMsg);
+
+    mapMsgTypeSize totalBytesSendPerMsg = connman.GetTotalBytesSendPerMsg();
+    UniValue bytesSendPerMsg(UniValue::VOBJ);
+    for (const auto& i : totalBytesSendPerMsg) {
+        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] looking at %d sent bytes for message type %s\n\n",
+            i.second, i.first);
+        if (i.second > 0)
+            bytesSendPerMsg.pushKV(i.first, i.second);
+    }
+    obj.pushKV("bytessent_per_msg", bytesSendPerMsg);
+
     obj.pushKV("timemillis", GetTimeMillis());
 
     UniValue outboundLimit(UniValue::VOBJ);
@@ -572,8 +587,6 @@ static RPCHelpMan getnettotals()
     outboundLimit.pushKV("bytes_left_in_cycle", connman.GetOutboundTargetBytesLeft());
     outboundLimit.pushKV("time_left_in_cycle", count_seconds(connman.GetMaxOutboundTimeLeftInCycle()));
     obj.pushKV("uploadtarget", outboundLimit);
-
-    LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] returning response\n\n");
 
     return obj;
 },

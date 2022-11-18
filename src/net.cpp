@@ -675,7 +675,7 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMs
                 continue;
             }
 
-            // Store received bytes per message type.
+            // For this peer, store received bytes per message type.
             // To prevent a memory DOS, only allow known message types.
             auto i = mapRecvBytesPerMsgType.find(msg.m_type);
             if (i == mapRecvBytesPerMsgType.end()) {
@@ -684,15 +684,13 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMs
             assert(i != mapRecvBytesPerMsgType.end());
             i->second += msg.m_raw_message_size;
 
+            // Update the out parameter that holds received bytes per message type
             auto j = mapBytesPerMsg.find(msg.m_type);
             if (j == mapBytesPerMsg.end()) {
                 j = mapBytesPerMsg.find(NET_MESSAGE_TYPE_OTHER);
             }
             assert(j != mapBytesPerMsg.end());
-            // LogPrint(BCLog::NET, "\n\nstacie - j->second before update: %d", j->second);
             j->second += msg.m_raw_message_size;
-            // LogPrint(BCLog::NET, "\nstacie - j->second after update: %d", j->second);
-
             // LogPrint(BCLog::NET, "\n\nstacie - added byte count of %d for message type: %s\n\n", msg.m_raw_message_size, msg.m_type);
 
             // push the message to the process queue,
@@ -2663,6 +2661,16 @@ void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize mapBytesPerMsg) {
     }
 }
 
+void CConnman::RecordBytesSentByMsgType(std::string m_type, size_t bytes) {
+    auto i = mapSendBytesPerMsgType.find(m_type);
+    if (i == mapSendBytesPerMsgType.end()) {
+        i = mapSendBytesPerMsgType.find(NET_MESSAGE_TYPE_OTHER);
+    }
+
+    assert(i != mapSendBytesPerMsgType.end());
+    i->second += bytes;
+}
+
 void CConnman::RecordBytesRecv(uint64_t bytes)
 {
     nTotalBytesRecv += bytes;
@@ -2756,7 +2764,7 @@ uint64_t CConnman::GetTotalBytesRecv() const
     return nTotalBytesRecv;
 }
 
-mapMsgTypeSize CConnman::GetTotalBytesRecvByMsg() const
+mapMsgTypeSize CConnman::GetTotalBytesRecvPerMsg() const
 {
     return mapRecvBytesPerMsgType;
 }
@@ -2766,6 +2774,11 @@ uint64_t CConnman::GetTotalBytesSent() const
     AssertLockNotHeld(m_total_bytes_sent_mutex);
     LOCK(m_total_bytes_sent_mutex);
     return nTotalBytesSent;
+}
+
+mapMsgTypeSize CConnman::GetTotalBytesSendPerMsg() const
+{
+    return mapSendBytesPerMsgType;
 }
 
 ServiceFlags CConnman::GetLocalServices() const
@@ -2858,7 +2871,10 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
         // If write queue empty, attempt "optimistic write"
         if (optimisticSend) nBytesSent = SocketSendData(*pnode);
     }
-    if (nBytesSent) RecordBytesSent(nBytesSent);
+    if (nBytesSent) {
+        RecordBytesSent(nBytesSent);
+        RecordBytesSentByMsgType(msg.m_type, nBytesSent);
+    }
 }
 
 bool CConnman::ForNode(NodeId id, std::function<bool(CNode* pnode)> func)

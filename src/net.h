@@ -725,9 +725,12 @@ public:
         }
         m_onion_binds = connOptions.onion_binds;
 
-        for (const std::string &msg : getAllNetMessageTypes())
+        for (const std::string &msg : getAllNetMessageTypes()) {
             mapRecvBytesPerMsgType[msg] = 0;
+            mapSendBytesPerMsgType[msg] = 0;
+        }
         mapRecvBytesPerMsgType[NET_MESSAGE_TYPE_OTHER] = 0;
+        mapSendBytesPerMsgType[NET_MESSAGE_TYPE_OTHER] = 0;
     }
 
     CConnman(uint64_t seed0, uint64_t seed1, AddrMan& addrman, const NetGroupManager& netgroupman,
@@ -857,8 +860,10 @@ public:
     std::chrono::seconds GetMaxOutboundTimeLeftInCycle() const EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
 
     uint64_t GetTotalBytesRecv() const;
-    mapMsgTypeSize GetTotalBytesRecvByMsg() const;
     uint64_t GetTotalBytesSent() const EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
+
+    mapMsgTypeSize GetTotalBytesRecvPerMsg() const;
+    mapMsgTypeSize GetTotalBytesSendPerMsg() const;
 
     /** Get a unique deterministic randomizer. */
     CSipHasher GetDeterministicRandomizer(uint64_t id) const;
@@ -976,7 +981,7 @@ private:
     void RecordBytesRecv(uint64_t bytes);
     void RecordBytesRecvByMsgType(mapMsgTypeSize mapBytesPerMsg);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
-
+    void RecordBytesSentByMsgType(std::string m_type, size_t bytes);
     /**
      * Return vector of current BLOCK_RELAY peers.
      */
@@ -990,6 +995,7 @@ private:
     std::atomic<uint64_t> nTotalBytesRecv{0};
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
     mapMsgTypeSize mapRecvBytesPerMsgType;
+    mapMsgTypeSize mapSendBytesPerMsgType;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};
