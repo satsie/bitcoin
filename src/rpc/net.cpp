@@ -517,6 +517,12 @@ static RPCHelpMan getnettotals()
                    {
                        {RPCResult::Type::NUM, "totalbytesrecv", "Total bytes received"},
                        {RPCResult::Type::NUM, "totalbytessent", "Total bytes sent"},
+                       {RPCResult::Type::OBJ_DYN, "bytesrecv_per_msg", "",
+                       {
+                        {RPCResult::Type::NUM, "msg", "The total bytes received aggregated by message type\n"
+                                                      "When a message type is not listed in this json object, the bytes received are 0.\n"
+                                                      "Only known message types can appear as keys in the object."}
+                       }},
                        {RPCResult::Type::NUM_TIME, "timemillis", "Current " + UNIX_EPOCH_TIME + " in milliseconds"},
                        {RPCResult::Type::OBJ, "uploadtarget", "",
                        {
@@ -538,60 +544,24 @@ static RPCHelpMan getnettotals()
     NodeContext& node = EnsureAnyNodeContext(request.context);
     const CConnman& connman = EnsureConnman(node);
 
-    mapMsgTypeSize bytesRecvPerMsg;
-    bytesRecvPerMsg["addrv2"] = 0;
-    bytesRecvPerMsg["feefilter"] = 0;
-    bytesRecvPerMsg["getaddr"] = 0;
-    bytesRecvPerMsg["getdata"] = 0;
-    bytesRecvPerMsg["getheaders"] = 0;
-    bytesRecvPerMsg["headers"] = 0;
-    bytesRecvPerMsg["inv"] = 0;
-    bytesRecvPerMsg["notfound"] = 0;
-    bytesRecvPerMsg["ping"] = 0;
-    bytesRecvPerMsg["pong"] = 0;
-    bytesRecvPerMsg["sendaddrv2"] = 0;
-    bytesRecvPerMsg["sendcmpct"] = 0;
-    bytesRecvPerMsg["sendheaders"] = 0;
-    bytesRecvPerMsg["tx"] = 0;
-    bytesRecvPerMsg["verack"] = 0;
-    bytesRecvPerMsg["version"] = 0;
-    bytesRecvPerMsg["wtxidrelay"] = 0;
-
     std::vector<CNodeStats> vstats;
     connman.GetNodeStats(vstats);
     mapMsgTypeSize totalBytesRecvByMsg = connman.GetTotalBytesRecvByMsg();
     LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] got a CNodeStats vector (vstats), going to iterate over it\n\n");
 
-    for (const auto& bytesRecvByMsg : totalBytesRecvByMsg) {
-        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] looking at %d bytes for message type %s\n\n",
-        bytesRecvByMsg.second, bytesRecvByMsg.first);
-        bytesRecvPerMsg[bytesRecvByMsg.first] += bytesRecvByMsg.second;
-    }
-
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
     obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
 
-    UniValue bytesSentPerMsgReturnObj(UniValue::VOBJ);
-    bytesSentPerMsgReturnObj.pushKV("addrv2", bytesRecvPerMsg["addrv2"]);
-    bytesSentPerMsgReturnObj.pushKV("feefilter", bytesRecvPerMsg["feefilter"]);
-    bytesSentPerMsgReturnObj.pushKV("getaddr", bytesRecvPerMsg["getaddr"]);
-    bytesSentPerMsgReturnObj.pushKV("getdata", bytesRecvPerMsg["getdata"]);
-    bytesSentPerMsgReturnObj.pushKV("getheaders", bytesRecvPerMsg["getheaders"]);
-    bytesSentPerMsgReturnObj.pushKV("headers", bytesRecvPerMsg["headers"]);
-    bytesSentPerMsgReturnObj.pushKV("inv", bytesRecvPerMsg["inv"]);
-    bytesSentPerMsgReturnObj.pushKV("notfound", bytesRecvPerMsg["notfound"]);
-    bytesSentPerMsgReturnObj.pushKV("ping", bytesRecvPerMsg["ping"]);
-    bytesSentPerMsgReturnObj.pushKV("pong", bytesRecvPerMsg["pong"]);
-    bytesSentPerMsgReturnObj.pushKV("sendaddrv2", bytesRecvPerMsg["sendaddrv2"]);
-    bytesSentPerMsgReturnObj.pushKV("sendcmpct", bytesRecvPerMsg["sendcmpct"]);
-    bytesSentPerMsgReturnObj.pushKV("sendheaders", bytesRecvPerMsg["sendheaders"]);
-    bytesSentPerMsgReturnObj.pushKV("tx", bytesRecvPerMsg["tx"]);
-    bytesSentPerMsgReturnObj.pushKV("verack", bytesRecvPerMsg["verack"]);
-    bytesSentPerMsgReturnObj.pushKV("version", bytesRecvPerMsg["version"]);
-    bytesSentPerMsgReturnObj.pushKV("wtxidrelay", bytesRecvPerMsg["wtxidrelay"]);
-    obj.pushKV("bytessent_per_msg", bytesSentPerMsgReturnObj);
+    UniValue bytesRecvPerMsg(UniValue::VOBJ);
+    for (const auto& i : totalBytesRecvByMsg) {
+        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] looking at %d bytes for message type %s\n\n",
+            i.second, i.first);
+        if (i.second > 0)
+            bytesRecvPerMsg.pushKV(i.first, i.second);
+    }
 
+    obj.pushKV("bytesrecv_per_msg", bytesRecvPerMsg);
     obj.pushKV("timemillis", GetTimeMillis());
 
     UniValue outboundLimit(UniValue::VOBJ);
@@ -602,6 +572,8 @@ static RPCHelpMan getnettotals()
     outboundLimit.pushKV("bytes_left_in_cycle", connman.GetOutboundTargetBytesLeft());
     outboundLimit.pushKV("time_left_in_cycle", count_seconds(connman.GetMaxOutboundTimeLeftInCycle()));
     obj.pushKV("uploadtarget", outboundLimit);
+
+    LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] returning response\n\n");
 
     return obj;
 },
