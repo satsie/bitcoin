@@ -63,7 +63,7 @@ void ConnmanTestMsg::Handshake(CNode& node,
 }
 
 void ConnmanTestMsg::NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete,
-    mapMsgTypeSize map_bytes_per_msg_type) const
+                                         mapMsgTypeSize map_bytes_per_msg_type) const
 {
     assert(node.ReceiveMsgBytes(msg_bytes, complete, map_bytes_per_msg_type));
     if (complete) {
