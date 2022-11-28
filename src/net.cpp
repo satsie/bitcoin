@@ -2751,11 +2751,21 @@ uint64_t CConnman::GetTotalBytesRecv() const
     return nTotalBytesRecv;
 }
 
+mapMsgTypeSize CConnman::GetTotalBytesRecvPerMsgType() const
+{
+    return m_map_recv_bytes_per_msg_type;
+}
+
 uint64_t CConnman::GetTotalBytesSent() const
 {
     AssertLockNotHeld(m_total_bytes_sent_mutex);
     LOCK(m_total_bytes_sent_mutex);
     return nTotalBytesSent;
+}
+
+mapMsgTypeSize CConnman::GetTotalBytesSendPerMsgType() const
+{
+    return m_map_send_bytes_per_msg_type;
 }
 
 ServiceFlags CConnman::GetLocalServices() const
