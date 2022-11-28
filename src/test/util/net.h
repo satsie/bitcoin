@@ -49,7 +49,7 @@ struct ConnmanTestMsg : public CConnman {
 
     void ProcessMessagesOnce(CNode& node) EXCLUSIVE_LOCKS_REQUIRED(NetEventsInterface::g_msgproc_mutex) { m_msgproc->ProcessMessages(&node, flagInterruptMsgProc); }
 
-    void NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize mapBytesPerMsg) const;
+    void NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize map_bytes_per_msg_type) const;
 
     bool ReceiveMsgFrom(CNode& node, CSerializedNetMsg& ser_msg) const;
 };

@@ -62,9 +62,9 @@ void ConnmanTestMsg::Handshake(CNode& node,
     }
 }
 
-void ConnmanTestMsg::NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize mapBytesPerMsg) const
+void ConnmanTestMsg::NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize map_bytes_per_msg_type) const
 {
-    assert(node.ReceiveMsgBytes(msg_bytes, complete, mapBytesPerMsg));
+    assert(node.ReceiveMsgBytes(msg_bytes, complete, map_bytes_per_msg_type));
     if (complete) {
         size_t nSizeAdded = 0;
         auto it(node.vRecvMsg.begin());
@@ -89,18 +89,19 @@ bool ConnmanTestMsg::ReceiveMsgFrom(CNode& node, CSerializedNetMsg& ser_msg) con
 
     bool complete;
 
-    mapMsgTypeSize mapBytesPerMsg;
+    mapMsgTypeSize map_bytes_per_msg_type;
     for (const std::string& msg : getAllNetMessageTypes())
-        mapBytesPerMsg[msg] = 0;
-    mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
+        map_bytes_per_msg_type[msg] = 0;
+    map_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
 
-    NodeReceiveMsgBytes(node, ser_msg_header, complete, mapBytesPerMsg);
+    NodeReceiveMsgBytes(node, ser_msg_header, complete, map_bytes_per_msg_type);
 
+    // Reset the map_bytes_per_msg_type output parameter
     for (const std::string& msg : getAllNetMessageTypes())
-        mapBytesPerMsg[msg] = 0;
-    mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
+        map_bytes_per_msg_type[msg] = 0;
+    map_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
 
-    NodeReceiveMsgBytes(node, ser_msg.data, complete, mapBytesPerMsg);
+    NodeReceiveMsgBytes(node, ser_msg.data, complete, map_bytes_per_msg_type);
     return complete;
 }
 

@@ -555,7 +555,7 @@ public:
      * @return  True if the peer should stay connected,
      *          False if the peer should be disconnected from.
      */
-    bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize& mapBytesPerMsg) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
+    bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize& map_bytes_per_msg_type) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
 
     void SetCommonVersion(int greatest_common_version)
     {
@@ -726,11 +726,11 @@ public:
         m_onion_binds = connOptions.onion_binds;
 
         for (const std::string& msg : getAllNetMessageTypes()) {
-            mapRecvBytesPerMsgType[msg] = 0;
-            mapSendBytesPerMsgType[msg] = 0;
+            m_map_recv_bytes_per_msg_type[msg] = 0;
+            m_map_send_bytes_per_msg_type[msg] = 0;
         }
-        mapRecvBytesPerMsgType[NET_MESSAGE_TYPE_OTHER] = 0;
-        mapSendBytesPerMsgType[NET_MESSAGE_TYPE_OTHER] = 0;
+        m_map_recv_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
+        m_map_send_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
     }
 
     CConnman(uint64_t seed0, uint64_t seed1, AddrMan& addrman, const NetGroupManager& netgroupman,
@@ -979,9 +979,9 @@ private:
 
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
-    void RecordBytesRecvByMsgType(mapMsgTypeSize mapBytesPerMsg);
+    void RecordBytesRecvByMsgType(mapMsgTypeSize map_bytes_per_msg_type);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
-    void RecordBytesSentByMsgType(std::string m_type, size_t bytes);
+    void RecordBytesSentByMsgType(std::string msg_type, size_t bytes);
     /**
      * Return vector of current BLOCK_RELAY peers.
      */
@@ -994,8 +994,8 @@ private:
     mutable Mutex m_total_bytes_sent_mutex;
     std::atomic<uint64_t> nTotalBytesRecv{0};
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
-    mapMsgTypeSize mapRecvBytesPerMsgType;
-    mapMsgTypeSize mapSendBytesPerMsgType;
+    mapMsgTypeSize m_map_recv_bytes_per_msg_type;
+    mapMsgTypeSize m_map_send_bytes_per_msg_type;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};
