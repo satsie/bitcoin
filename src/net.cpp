@@ -1311,7 +1311,7 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                 mapMsgTypeSize mapBytesPerMsg;
 
                 // initialize all message type values to zero
-                for (const std::string &msg : getAllNetMessageTypes())
+                for (const std::string& msg : getAllNetMessageTypes())
                     mapBytesPerMsg[msg] = 0;
                 mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
 
@@ -2637,9 +2637,9 @@ bool CConnman::DisconnectNode(NodeId id)
     return false;
 }
 
-void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize mapBytesPerMsg) {
+void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize mapBytesPerMsg)
+{
     for (auto const& bytesPerMsg : mapBytesPerMsg) {
-
         auto i = mapRecvBytesPerMsgType.find(bytesPerMsg.first);
         if (i == mapRecvBytesPerMsgType.end()) {
             i = mapRecvBytesPerMsgType.find(NET_MESSAGE_TYPE_OTHER);
@@ -2650,7 +2650,8 @@ void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize mapBytesPerMsg) {
     }
 }
 
-void CConnman::RecordBytesSentByMsgType(std::string m_type, size_t bytes) {
+void CConnman::RecordBytesSentByMsgType(std::string m_type, size_t bytes)
+{
     auto i = mapSendBytesPerMsgType.find(m_type);
     if (i == mapSendBytesPerMsgType.end()) {
         i = mapSendBytesPerMsgType.find(NET_MESSAGE_TYPE_OTHER);

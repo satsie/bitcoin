@@ -725,7 +725,7 @@ public:
         }
         m_onion_binds = connOptions.onion_binds;
 
-        for (const std::string &msg : getAllNetMessageTypes()) {
+        for (const std::string& msg : getAllNetMessageTypes()) {
             mapRecvBytesPerMsgType[msg] = 0;
             mapSendBytesPerMsgType[msg] = 0;
         }

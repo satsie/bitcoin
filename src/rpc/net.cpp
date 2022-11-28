@@ -508,80 +508,68 @@ static RPCHelpMan getaddednodeinfo()
 
 static RPCHelpMan getnettotals()
 {
-    return RPCHelpMan{"getnettotals",
-                "\nReturns information about network traffic, including bytes in, bytes out,\n"
-                "and current time.\n",
-                {},
-                RPCResult{
-                   RPCResult::Type::OBJ, "", "",
-                   {
-                       {RPCResult::Type::NUM, "totalbytesrecv", "Total bytes received"},
-                       {RPCResult::Type::NUM, "totalbytessent", "Total bytes sent"},
-                       {RPCResult::Type::OBJ_DYN, "bytesrecv_per_msg", "",
-                       {
-                        {RPCResult::Type::NUM, "msg", "The total bytes received aggregated by message type\n"
-                                                      "When a message type is not listed in this json object, the bytes received are 0.\n"
-                                                      "Only known message types can appear as keys in the object."}
-                       }},
-                       {RPCResult::Type::OBJ_DYN, "bytessent_per_msg", "",
-                       {
-                        {RPCResult::Type::NUM, "msg", "The total bytes sent aggregated by message type\n"
-                                                      "When a message type is not listed in this json object, the bytes sent are 0.\n"
-                                                      "Only known message types can appear as keys in the object."}
-                       }},
-                       {RPCResult::Type::NUM_TIME, "timemillis", "Current " + UNIX_EPOCH_TIME + " in milliseconds"},
-                       {RPCResult::Type::OBJ, "uploadtarget", "",
-                       {
-                           {RPCResult::Type::NUM, "timeframe", "Length of the measuring timeframe in seconds"},
-                           {RPCResult::Type::NUM, "target", "Target in bytes"},
-                           {RPCResult::Type::BOOL, "target_reached", "True if target is reached"},
-                           {RPCResult::Type::BOOL, "serve_historical_blocks", "True if serving historical blocks"},
-                           {RPCResult::Type::NUM, "bytes_left_in_cycle", "Bytes left in current time cycle"},
-                           {RPCResult::Type::NUM, "time_left_in_cycle", "Seconds left in current time cycle"},
-                        }},
-                    }
-                },
-                RPCExamples{
-                    HelpExampleCli("getnettotals", "")
-            + HelpExampleRpc("getnettotals", "")
-                },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    NodeContext& node = EnsureAnyNodeContext(request.context);
-    const CConnman& connman = EnsureConnman(node);
+    return RPCHelpMan{
+        "getnettotals",
+        "\nReturns information about network traffic, including bytes in, bytes out,\n"
+        "and current time.\n",
+        {},
+        RPCResult{
+            RPCResult::Type::OBJ, "", "", {
+                                              {RPCResult::Type::NUM, "totalbytesrecv", "Total bytes received"},
+                                              {RPCResult::Type::NUM, "totalbytessent", "Total bytes sent"},
+                                              {RPCResult::Type::OBJ_DYN, "bytesrecv_per_msg", "", {{RPCResult::Type::NUM, "msg", "The total bytes received aggregated by message type\n"
+                                                                                                                                 "When a message type is not listed in this json object, the bytes received are 0.\n"
+                                                                                                                                 "Only known message types can appear as keys in the object."}}},
+                                              {RPCResult::Type::OBJ_DYN, "bytessent_per_msg", "", {{RPCResult::Type::NUM, "msg", "The total bytes sent aggregated by message type\n"
+                                                                                                                                 "When a message type is not listed in this json object, the bytes sent are 0.\n"
+                                                                                                                                 "Only known message types can appear as keys in the object."}}},
+                                              {RPCResult::Type::NUM_TIME, "timemillis", "Current " + UNIX_EPOCH_TIME + " in milliseconds"},
+                                              {RPCResult::Type::OBJ, "uploadtarget", "", {
+                                                                                             {RPCResult::Type::NUM, "timeframe", "Length of the measuring timeframe in seconds"},
+                                                                                             {RPCResult::Type::NUM, "target", "Target in bytes"},
+                                                                                             {RPCResult::Type::BOOL, "target_reached", "True if target is reached"},
+                                                                                             {RPCResult::Type::BOOL, "serve_historical_blocks", "True if serving historical blocks"},
+                                                                                             {RPCResult::Type::NUM, "bytes_left_in_cycle", "Bytes left in current time cycle"},
+                                                                                             {RPCResult::Type::NUM, "time_left_in_cycle", "Seconds left in current time cycle"},
+                                                                                         }},
+                                          }},
+        RPCExamples{HelpExampleCli("getnettotals", "") + HelpExampleRpc("getnettotals", "")},
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
+            NodeContext& node = EnsureAnyNodeContext(request.context);
+            const CConnman& connman = EnsureConnman(node);
 
-    UniValue obj(UniValue::VOBJ);
-    obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
-    obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
+            UniValue obj(UniValue::VOBJ);
+            obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
+            obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
 
-    mapMsgTypeSize totalBytesRecvPerMsg = connman.GetTotalBytesRecvPerMsg();
-    UniValue bytesRecvPerMsg(UniValue::VOBJ);
-    for (const auto& i : totalBytesRecvPerMsg) {
-        if (i.second > 0)
-            bytesRecvPerMsg.pushKV(i.first, i.second);
-    }
-    obj.pushKV("bytesrecv_per_msg", bytesRecvPerMsg);
+            mapMsgTypeSize totalBytesRecvPerMsg = connman.GetTotalBytesRecvPerMsg();
+            UniValue bytesRecvPerMsg(UniValue::VOBJ);
+            for (const auto& i : totalBytesRecvPerMsg) {
+                if (i.second > 0)
+                    bytesRecvPerMsg.pushKV(i.first, i.second);
+            }
+            obj.pushKV("bytesrecv_per_msg", bytesRecvPerMsg);
 
-    mapMsgTypeSize totalBytesSendPerMsg = connman.GetTotalBytesSendPerMsg();
-    UniValue bytesSendPerMsg(UniValue::VOBJ);
-    for (const auto& i : totalBytesSendPerMsg) {
-        if (i.second > 0)
-            bytesSendPerMsg.pushKV(i.first, i.second);
-    }
-    obj.pushKV("bytessent_per_msg", bytesSendPerMsg);
+            mapMsgTypeSize totalBytesSendPerMsg = connman.GetTotalBytesSendPerMsg();
+            UniValue bytesSendPerMsg(UniValue::VOBJ);
+            for (const auto& i : totalBytesSendPerMsg) {
+                if (i.second > 0)
+                    bytesSendPerMsg.pushKV(i.first, i.second);
+            }
+            obj.pushKV("bytessent_per_msg", bytesSendPerMsg);
 
-    obj.pushKV("timemillis", GetTimeMillis());
+            obj.pushKV("timemillis", GetTimeMillis());
 
-    UniValue outboundLimit(UniValue::VOBJ);
-    outboundLimit.pushKV("timeframe", count_seconds(connman.GetMaxOutboundTimeframe()));
-    outboundLimit.pushKV("target", connman.GetMaxOutboundTarget());
-    outboundLimit.pushKV("target_reached", connman.OutboundTargetReached(false));
-    outboundLimit.pushKV("serve_historical_blocks", !connman.OutboundTargetReached(true));
-    outboundLimit.pushKV("bytes_left_in_cycle", connman.GetOutboundTargetBytesLeft());
-    outboundLimit.pushKV("time_left_in_cycle", count_seconds(connman.GetMaxOutboundTimeLeftInCycle()));
-    obj.pushKV("uploadtarget", outboundLimit);
-    return obj;
-},
+            UniValue outboundLimit(UniValue::VOBJ);
+            outboundLimit.pushKV("timeframe", count_seconds(connman.GetMaxOutboundTimeframe()));
+            outboundLimit.pushKV("target", connman.GetMaxOutboundTarget());
+            outboundLimit.pushKV("target_reached", connman.OutboundTargetReached(false));
+            outboundLimit.pushKV("serve_historical_blocks", !connman.OutboundTargetReached(true));
+            outboundLimit.pushKV("bytes_left_in_cycle", connman.GetOutboundTargetBytesLeft());
+            outboundLimit.pushKV("time_left_in_cycle", count_seconds(connman.GetMaxOutboundTimeLeftInCycle()));
+            obj.pushKV("uploadtarget", outboundLimit);
+            return obj;
+        },
     };
 }
 

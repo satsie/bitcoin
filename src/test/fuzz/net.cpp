@@ -63,7 +63,7 @@ FUZZ_TARGET_INIT(net, initialize_net)
                 bool complete;
 
                 mapMsgTypeSize mapBytesPerMsg;
-                for (const std::string &msg : getAllNetMessageTypes())
+                for (const std::string& msg : getAllNetMessageTypes())
                     mapBytesPerMsg[msg] = 0;
                 mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
 
