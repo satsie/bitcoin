@@ -162,6 +162,8 @@ class NetTest(BitcoinTestFramework):
         self.nodes[0].ping()
         self.wait_until(lambda: (self.nodes[0].getnettotals()['totalbytessent'] >= net_totals_before['totalbytessent'] + 32 * 2), timeout=1)
         self.wait_until(lambda: (self.nodes[0].getnettotals()['totalbytesrecv'] >= net_totals_before['totalbytesrecv'] + 32 * 2), timeout=1)
+        self.wait_until(lambda: (self.nodes[0].getnettotals()['bytesrecv_per_msg'].get('pong', 0) >= net_totals_before['bytesrecv_per_msg'].get('pong', 0) + 32), timeout=1)
+        self.wait_until(lambda: (self.nodes[0].getnettotals()['bytessent_per_msg'].get('ping', 0) >= net_totals_before['bytessent_per_msg'].get('ping', 0) + 32), timeout=1)
 
         for peer_before in peer_info_before:
             peer_after = lambda: next(p for p in self.nodes[0].getpeerinfo() if p['id'] == peer_before['id'])

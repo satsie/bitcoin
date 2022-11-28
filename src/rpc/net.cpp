@@ -520,6 +520,18 @@ static RPCHelpMan getnettotals()
                    {
                        {RPCResult::Type::NUM, "totalbytesrecv", "Total bytes received"},
                        {RPCResult::Type::NUM, "totalbytessent", "Total bytes sent"},
+                       {RPCResult::Type::OBJ_DYN, "bytessent_per_msg", "",
+                       {
+                        {RPCResult::Type::NUM, "msg", "The total bytes sent aggregated by message type\n"
+                                                      "When a message type is not listed in this json object, the bytes sent are 0.\n"
+                                                      "Only known message types can appear as keys in the object."}
+                       }},
+                       {RPCResult::Type::OBJ_DYN, "bytesrecv_per_msg", "",
+                       {
+                        {RPCResult::Type::NUM, "msg", "The total bytes received aggregated by message type\n"
+                                                      "When a message type is not listed in this json object, the bytes received are 0.\n"
+                                                      "Only known message types can appear as keys in the object."}
+                       }},
                        {RPCResult::Type::NUM_TIME, "timemillis", "Current " + UNIX_EPOCH_TIME + " in milliseconds"},
                        {RPCResult::Type::OBJ, "uploadtarget", "",
                        {
@@ -544,6 +556,23 @@ static RPCHelpMan getnettotals()
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
     obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
+
+    mapMsgTypeSize total_bytes_send_per_msg_type = connman.GetTotalBytesSendPerMsgType();
+    UniValue bytessent_per_msg(UniValue::VOBJ);
+    for (const auto& i : total_bytes_send_per_msg_type) {
+        if (i.second > 0)
+            bytessent_per_msg.pushKV(i.first, i.second);
+        }
+    obj.pushKV("bytessent_per_msg", bytessent_per_msg);
+
+    mapMsgTypeSize total_bytes_recv_per_msg_type = connman.GetTotalBytesRecvPerMsgType();
+    UniValue bytesrecv_per_msg(UniValue::VOBJ);
+    for (const auto& i : total_bytes_recv_per_msg_type) {
+        if (i.second > 0)
+            bytesrecv_per_msg.pushKV(i.first, i.second);
+        }
+    obj.pushKV("bytesrecv_per_msg", bytesrecv_per_msg);
+
     obj.pushKV("timemillis", GetTimeMillis());
 
     UniValue outboundLimit(UniValue::VOBJ);
