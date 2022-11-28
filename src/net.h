@@ -552,10 +552,13 @@ public:
      * @param[in]   msg_bytes   The raw data
      * @param[out]  complete    Set True if at least one message has been
      *                          deserialized and is ready to be processed
+     * @param[out]  mapBytesPerMsg   A map of message types and the
+     *                               number of bytes received per type
      * @return  True if the peer should stay connected,
      *          False if the peer should be disconnected from.
      */
-    bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
+    bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
+        mapMsgTypeSize& map_bytes_per_msg_type) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
 
     void SetCommonVersion(int greatest_common_version)
     {
