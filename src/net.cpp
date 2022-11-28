@@ -650,7 +650,7 @@ void CNode::CopyStats(CNodeStats& stats)
 }
 #undef X
 
-bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete)
+bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize& map_bytes_per_msg_type)
 {
     complete = false;
     const auto time = GetTime<std::chrono::microseconds>();
@@ -676,7 +676,7 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete)
                 continue;
             }
 
-            // Store received bytes per message type.
+            // For this peer, store received bytes per message type.
             // To prevent a memory DOS, only allow known message types.
             auto i = mapRecvBytesPerMsgType.find(msg.m_type);
             if (i == mapRecvBytesPerMsgType.end()) {
@@ -684,6 +684,14 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete)
             }
             assert(i != mapRecvBytesPerMsgType.end());
             i->second += msg.m_raw_message_size;
+
+            // Update the output parameter that holds received bytes per message type
+            auto j = map_bytes_per_msg_type.find(msg.m_type);
+            if (j == map_bytes_per_msg_type.end()) {
+                j = map_bytes_per_msg_type.find(NET_MESSAGE_TYPE_OTHER);
+            }
+            assert(j != map_bytes_per_msg_type.end());
+            j->second += msg.m_raw_message_size;
 
             // push the message to the process queue,
             vRecvMsg.push_back(std::move(msg));
@@ -1299,10 +1307,21 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
             if (nBytes > 0)
             {
                 bool notify = false;
-                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify)) {
+
+                // a map to store the bytes by message type
+                mapMsgTypeSize map_bytes_per_msg_type;
+
+                // initialize all message type values to zero
+                for (const std::string& msg : getAllNetMessageTypes())
+                    map_bytes_per_msg_type[msg] = 0;
+                map_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
+
+                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, map_bytes_per_msg_type)) {
                     pnode->CloseSocketDisconnect();
                 }
                 RecordBytesRecv(nBytes);
+                RecordBytesRecvByMsgType(map_bytes_per_msg_type);
+
                 if (notify) {
                     size_t nSizeAdded = 0;
                     auto it(pnode->vRecvMsg.begin());
