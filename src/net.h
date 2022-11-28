@@ -722,6 +722,13 @@ public:
             m_added_nodes = connOptions.m_added_nodes;
         }
         m_onion_binds = connOptions.onion_binds;
+
+        for (const std::string& msg : getAllNetMessageTypes()) {
+            m_map_recv_bytes_per_msg_type[msg] = 0;
+            m_map_send_bytes_per_msg_type[msg] = 0;
+        }
+        m_map_recv_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
+        m_map_send_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
     }
 
     CConnman(uint64_t seed0, uint64_t seed1, AddrMan& addrman, const NetGroupManager& netgroupman,
@@ -853,6 +860,9 @@ public:
     uint64_t GetTotalBytesRecv() const;
     uint64_t GetTotalBytesSent() const EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
 
+    mapMsgTypeSize GetTotalBytesRecvPerMsgType() const;
+    mapMsgTypeSize GetTotalBytesSendPerMsgType() const;
+
     /** Get a unique deterministic randomizer. */
     CSipHasher GetDeterministicRandomizer(uint64_t id) const;
 
@@ -981,6 +991,8 @@ private:
     mutable Mutex m_total_bytes_sent_mutex;
     std::atomic<uint64_t> nTotalBytesRecv{0};
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
+    mapMsgTypeSize m_map_recv_bytes_per_msg_type;
+    mapMsgTypeSize m_map_send_bytes_per_msg_type;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};
