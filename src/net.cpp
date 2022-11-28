@@ -2901,7 +2901,10 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
         // If write queue empty, attempt "optimistic write"
         if (optimisticSend) nBytesSent = SocketSendData(*pnode);
     }
-    if (nBytesSent) RecordBytesSent(nBytesSent);
+    if (nBytesSent) {
+        RecordBytesSent(nBytesSent);
+        RecordBytesSentByMsgType(msg.m_type, nBytesSent);
+    }
 }
 
 bool CConnman::ForNode(NodeId id, std::function<bool(CNode* pnode)> func)
