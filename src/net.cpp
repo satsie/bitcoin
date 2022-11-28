@@ -2663,6 +2663,19 @@ void CConnman::RecordBytesRecv(uint64_t bytes)
     nTotalBytesRecv += bytes;
 }
 
+void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize map_bytes_per_msg_type)
+{
+    for (auto const& msg_type_bytes : map_bytes_per_msg_type) {
+        auto i = m_map_recv_bytes_per_msg_type.find(msg_type_bytes.first);
+        if (i == m_map_recv_bytes_per_msg_type.end()) {
+            i = m_map_recv_bytes_per_msg_type.find(NET_MESSAGE_TYPE_OTHER);
+        }
+
+        assert(i != m_map_recv_bytes_per_msg_type.end());
+        i->second += msg_type_bytes.second;
+    }
+}
+
 void CConnman::RecordBytesSent(uint64_t bytes)
 {
     AssertLockNotHeld(m_total_bytes_sent_mutex);
@@ -2679,6 +2692,17 @@ void CConnman::RecordBytesSent(uint64_t bytes)
     }
 
     nMaxOutboundTotalBytesSentInCycle += bytes;
+}
+
+void CConnman::RecordBytesSentByMsgType(std::string msg_type, size_t bytes)
+{
+    auto i = m_map_send_bytes_per_msg_type.find(msg_type);
+    if (i == m_map_send_bytes_per_msg_type.end()) {
+        i = m_map_send_bytes_per_msg_type.find(NET_MESSAGE_TYPE_OTHER);
+    }
+
+    assert(i != m_map_send_bytes_per_msg_type.end());
+    i->second += bytes;
 }
 
 uint64_t CConnman::GetMaxOutboundTarget() const
