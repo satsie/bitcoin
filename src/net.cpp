@@ -691,7 +691,6 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMs
             }
             assert(j != mapBytesPerMsg.end());
             j->second += msg.m_raw_message_size;
-            // LogPrint(BCLog::NET, "\n\nstacie - added byte count of %d for message type: %s\n\n", msg.m_raw_message_size, msg.m_type);
 
             // push the message to the process queue,
             vRecvMsg.push_back(std::move(msg));
@@ -700,11 +699,6 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMs
         }
     }
 
-    // LogPrint(BCLog::NET, "\n\nstacie - sending back mapBytesPerMessage\n");
-
-    // for (auto const& bytesPerMsg : mapBytesPerMsg) {
-    //     LogPrint(BCLog::NET, "\nstacie - %s: %d", bytesPerMsg.first, bytesPerMsg.second);
-    // }
     return true;
 }
 
@@ -1314,8 +1308,9 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                 bool notify = false;
 
                 // a map to store the bytes by message type
-                // initialize all message type values to zero
                 mapMsgTypeSize mapBytesPerMsg;
+
+                // initialize all message type values to zero
                 for (const std::string &msg : getAllNetMessageTypes())
                     mapBytesPerMsg[msg] = 0;
                 mapBytesPerMsg[NET_MESSAGE_TYPE_OTHER] = 0;
@@ -1323,14 +1318,8 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                 if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, mapBytesPerMsg)) {
                     pnode->CloseSocketDisconnect();
                 }
+
                 RecordBytesRecv(nBytes);
-
-                LogPrint(BCLog::NET, "\n\nstacie - got back mapBytesPerMessage\n");
-
-                for (auto const& bytesPerMsg : mapBytesPerMsg) {
-                    LogPrint(BCLog::NET, "\nstacie - %s: %d", bytesPerMsg.first, bytesPerMsg.second);
-                }
-
                 RecordBytesRecvByMsgType(mapBytesPerMsg);
 
                 if (notify) {

@@ -550,8 +550,8 @@ public:
      * @param[in]   msg_bytes   The raw data
      * @param[out]  complete    Set True if at least one message has been
      *                          deserialized and is ready to be processed
-     * @param[out]  mapBytesPerMsg   A map of message types mapped to the
-     *                               number of bytes
+     * @param[out]  mapBytesPerMsg   A map of message types and the
+     *                               number of bytes received per type
      * @return  True if the peer should stay connected,
      *          False if the peer should be disconnected from.
      */

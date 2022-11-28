@@ -62,14 +62,14 @@ class NetTest(BitcoinTestFramework):
         self.connect_nodes(0, 1)
         self.sync_all()
 
-        # self.test_connection_count()
-        # self.test_getpeerinfo()
+        self.test_connection_count()
+        self.test_getpeerinfo()
         self.test_getnettotals()
-        # self.test_getnetworkinfo()
-        # self.test_getaddednodeinfo()
-        # self.test_service_flags()
-        # self.test_getnodeaddresses()
-        # self.test_addpeeraddress()
+        self.test_getnetworkinfo()
+        self.test_getaddednodeinfo()
+        self.test_service_flags()
+        self.test_getnodeaddresses()
+        self.test_addpeeraddress()
 
     def test_connection_count(self):
         self.log.info("Test getconnectioncount")

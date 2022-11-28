@@ -550,9 +550,6 @@ static RPCHelpMan getnettotals()
     NodeContext& node = EnsureAnyNodeContext(request.context);
     const CConnman& connman = EnsureConnman(node);
 
-    std::vector<CNodeStats> vstats;
-    connman.GetNodeStats(vstats);
-
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
     obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
@@ -560,8 +557,6 @@ static RPCHelpMan getnettotals()
     mapMsgTypeSize totalBytesRecvPerMsg = connman.GetTotalBytesRecvPerMsg();
     UniValue bytesRecvPerMsg(UniValue::VOBJ);
     for (const auto& i : totalBytesRecvPerMsg) {
-        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] looking at %d received bytes for message type %s\n\n",
-            i.second, i.first);
         if (i.second > 0)
             bytesRecvPerMsg.pushKV(i.first, i.second);
     }
@@ -570,8 +565,6 @@ static RPCHelpMan getnettotals()
     mapMsgTypeSize totalBytesSendPerMsg = connman.GetTotalBytesSendPerMsg();
     UniValue bytesSendPerMsg(UniValue::VOBJ);
     for (const auto& i : totalBytesSendPerMsg) {
-        LogPrint(BCLog::NET, "\n\nstacie - [getnettotals] looking at %d sent bytes for message type %s\n\n",
-            i.second, i.first);
         if (i.second > 0)
             bytesSendPerMsg.pushKV(i.first, i.second);
     }
@@ -587,7 +580,6 @@ static RPCHelpMan getnettotals()
     outboundLimit.pushKV("bytes_left_in_cycle", connman.GetOutboundTargetBytesLeft());
     outboundLimit.pushKV("time_left_in_cycle", count_seconds(connman.GetMaxOutboundTimeLeftInCycle()));
     obj.pushKV("uploadtarget", outboundLimit);
-
     return obj;
 },
     };
