@@ -542,7 +542,7 @@ static RPCHelpMan getnettotals()
             obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
             obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
 
-            mapMsgTypeSize total_bytes_send_per_msg_type = connman.GetTotalBytesSendPerMsgType();
+            mapMsgTypeSize total_bytes_send_per_msg_type = connman.GetTotalBytesSentByMsgType();
             UniValue bytessent_per_msg(UniValue::VOBJ);
             for (const auto& i : total_bytes_send_per_msg_type) {
                 if (i.second > 0)
@@ -550,7 +550,7 @@ static RPCHelpMan getnettotals()
             }
             obj.pushKV("bytessent_per_msg", bytessent_per_msg);
 
-            mapMsgTypeSize total_bytes_recv_per_msg_type = connman.GetTotalBytesRecvPerMsgType();
+            mapMsgTypeSize total_bytes_recv_per_msg_type = connman.GetTotalBytesRecvByMsgType();
             UniValue bytesrecv_per_msg(UniValue::VOBJ);
             for (const auto& i : total_bytes_recv_per_msg_type) {
                 if (i.second > 0)
