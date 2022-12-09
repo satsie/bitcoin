@@ -63,9 +63,9 @@ void ConnmanTestMsg::Handshake(CNode& node,
 }
 
 void ConnmanTestMsg::NodeReceiveMsgBytes(CNode& node, Span<const uint8_t> msg_bytes, bool& complete,
-                                         mapMsgTypeSize map_bytes_per_msg_type) const
+                                         mapMsgTypeSize msgtype_bytes) const
 {
-    assert(node.ReceiveMsgBytes(msg_bytes, complete, map_bytes_per_msg_type));
+    assert(node.ReceiveMsgBytes(msg_bytes, complete, msgtype_bytes));
     if (complete) {
         size_t nSizeAdded = 0;
         for (const auto& msg : node.vRecvMsg) {
@@ -89,19 +89,19 @@ bool ConnmanTestMsg::ReceiveMsgFrom(CNode& node, CSerializedNetMsg& ser_msg) con
 
     bool complete;
 
-    mapMsgTypeSize map_bytes_per_msg_type;
+    mapMsgTypeSize msgtype_bytes;
     for (const std::string& msg : getAllNetMessageTypes())
-        map_bytes_per_msg_type[msg] = 0;
-    map_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
+        msgtype_bytes[msg] = 0;
+    msgtype_bytes[NET_MESSAGE_TYPE_OTHER] = 0;
 
-    NodeReceiveMsgBytes(node, ser_msg_header, complete, map_bytes_per_msg_type);
+    NodeReceiveMsgBytes(node, ser_msg_header, complete, msgtype_bytes);
 
-    // Reset the map_bytes_per_msg_type output parameter
+    // Reset the msgtype_bytes output parameter
     for (const std::string& msg : getAllNetMessageTypes())
-        map_bytes_per_msg_type[msg] = 0;
-    map_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
+        msgtype_bytes[msg] = 0;
+    msgtype_bytes[NET_MESSAGE_TYPE_OTHER] = 0;
 
-    NodeReceiveMsgBytes(node, ser_msg.data, complete, map_bytes_per_msg_type);
+    NodeReceiveMsgBytes(node, ser_msg.data, complete, msgtype_bytes);
     return complete;
 }
 

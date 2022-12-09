@@ -666,7 +666,7 @@ void CNode::CopyStats(CNodeStats& stats)
 }
 #undef X
 
-bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize& map_bytes_per_msg_type)
+bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize& msgtype_bytes)
 {
     complete = false;
     const auto time = GetTime<std::chrono::microseconds>();
@@ -702,11 +702,11 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMs
             i->second += msg.m_raw_message_size;
 
             // Update the output parameter that holds received bytes per message type
-            auto j = map_bytes_per_msg_type.find(msg.m_type);
-            if (j == map_bytes_per_msg_type.end()) {
-                j = map_bytes_per_msg_type.find(NET_MESSAGE_TYPE_OTHER);
+            auto j = msgtype_bytes.find(msg.m_type);
+            if (j == msgtype_bytes.end()) {
+                j = msgtype_bytes.find(NET_MESSAGE_TYPE_OTHER);
             }
-            assert(j != map_bytes_per_msg_type.end());
+            assert(j != msgtype_bytes.end());
             j->second += msg.m_raw_message_size;
 
             // push the message to the process queue,
@@ -1332,18 +1332,18 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                 bool notify = false;
 
                 // a map to store the bytes by message type
-                mapMsgTypeSize map_bytes_per_msg_type;
+                mapMsgTypeSize msgtype_bytes;
 
                 // initialize all message type values to zero
                 for (const std::string& msg : getAllNetMessageTypes())
-                    map_bytes_per_msg_type[msg] = 0;
-                map_bytes_per_msg_type[NET_MESSAGE_TYPE_OTHER] = 0;
+                    msgtype_bytes[msg] = 0;
+                msgtype_bytes[NET_MESSAGE_TYPE_OTHER] = 0;
 
-                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, map_bytes_per_msg_type)) {
+                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, msgtype_bytes)) {
                     pnode->CloseSocketDisconnect();
                 }
                 RecordBytesRecv(nBytes);
-                RecordBytesRecvByMsgType(map_bytes_per_msg_type);
+                RecordBytesRecvByMsgType(msgtype_bytes);
 
                 if (notify) {
                     size_t nSizeAdded = 0;
@@ -2682,15 +2682,15 @@ void CConnman::RecordBytesRecv(uint64_t bytes)
     nTotalBytesRecv += bytes;
 }
 
-void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize map_bytes_per_msg_type)
+void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize msgtype_bytes)
 {
-    for (auto const& msg_type_bytes : map_bytes_per_msg_type) {
-        auto i = m_map_recv_bytes_per_msg_type.find(msg_type_bytes.first);
-        if (i == m_map_recv_bytes_per_msg_type.end()) {
-            i = m_map_recv_bytes_per_msg_type.find(NET_MESSAGE_TYPE_OTHER);
+    for (auto const& msg_type_bytes : msgtype_bytes) {
+        auto i = m_msgtype_bytes_recv.find(msg_type_bytes.first);
+        if (i == m_msgtype_bytes_recv.end()) {
+            i = m_msgtype_bytes_recv.find(NET_MESSAGE_TYPE_OTHER);
         }
 
-        assert(i != m_map_recv_bytes_per_msg_type.end());
+        assert(i != m_msgtype_bytes_recv.end());
         i->second += msg_type_bytes.second;
     }
 }
@@ -2715,12 +2715,12 @@ void CConnman::RecordBytesSent(uint64_t bytes)
 
 void CConnman::RecordBytesSentByMsgType(std::string msg_type, size_t bytes)
 {
-    auto i = m_map_send_bytes_per_msg_type.find(msg_type);
-    if (i == m_map_send_bytes_per_msg_type.end()) {
-        i = m_map_send_bytes_per_msg_type.find(NET_MESSAGE_TYPE_OTHER);
+    auto i = m_msgtype_bytes_sent.find(msg_type);
+    if (i == m_msgtype_bytes_sent.end()) {
+        i = m_msgtype_bytes_sent.find(NET_MESSAGE_TYPE_OTHER);
     }
 
-    assert(i != m_map_send_bytes_per_msg_type.end());
+    assert(i != m_msgtype_bytes_sent.end());
     i->second += bytes;
 }
 
@@ -2794,9 +2794,9 @@ uint64_t CConnman::GetTotalBytesRecv() const
     return nTotalBytesRecv;
 }
 
-mapMsgTypeSize CConnman::GetTotalBytesRecvPerMsgType() const
+mapMsgTypeSize CConnman::GetTotalBytesRecvByMsgType() const
 {
-    return m_map_recv_bytes_per_msg_type;
+    return m_msgtype_bytes_recv;
 }
 
 uint64_t CConnman::GetTotalBytesSent() const
@@ -2806,9 +2806,9 @@ uint64_t CConnman::GetTotalBytesSent() const
     return nTotalBytesSent;
 }
 
-mapMsgTypeSize CConnman::GetTotalBytesSendPerMsgType() const
+mapMsgTypeSize CConnman::GetTotalBytesSentByMsgType() const
 {
-    return m_map_send_bytes_per_msg_type;
+    return m_msgtype_bytes_sent;
 }
 
 ServiceFlags CConnman::GetLocalServices() const
