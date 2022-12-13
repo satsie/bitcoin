@@ -984,9 +984,10 @@ private:
 
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
-    void RecordBytesRecvByMsgType(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes);
+    void RecordMsgStatsRecv(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes,
+        ConnectionType conntype, Network networktype);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
-    void RecordBytesSentByMsgType(std::string msg_type, size_t bytes);
+    void RecordMsgStatsSent(std::string msg_type, size_t bytes, ConnectionType conntype, Network networktype);
 
     /**
      Return reachable networks for which we have no addresses in addrman and therefore

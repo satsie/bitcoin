@@ -1351,12 +1351,8 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                 if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, msgtype_countbytes)) {
                     pnode->CloseSocketDisconnect();
                 }
-                RecordBytesRecv(nBytes);
-                // TODO network type - Call CNode::ConnectedThroughNetwork()
-                // TODO get the connection type from the pnode (do the CNode::ConnectionTypeAsString() method for now)
-                // Could also get both these pieces of information by using CNodeStats, but it takes work to initialize a
-                // data structure for the CNodeStats to populate. Seems like too much overhead.
-                RecordBytesRecvByMsgType(msgtype_countbytes);
+                RecordBytesRecv(nBytes);                
+                RecordMsgStatsRecv(msgtype_countbytes, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
 
                 if (notify) {
                     size_t nSizeAdded = 0;
@@ -2695,8 +2691,13 @@ void CConnman::RecordBytesRecv(uint64_t bytes)
     nTotalBytesRecv += bytes;
 }
 
-void CConnman::RecordBytesRecvByMsgType(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes)
+void CConnman::RecordMsgStatsRecv(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes,
+    ConnectionType conntype, Network networktype)
 {
+    LogPrint(BCLog::NET, "\nstacie - connection type: %s\n", ConnectionTypeAsString(conntype));
+    LogPrint(BCLog::NET, "\nstacie - network type: %s\n", NetworkAsString(networktype));
+
+    // TODO actually do something with message count, conntype, and network
     for (auto const& msgtype_stats : msgtype_countbytes) {
         auto i = m_msgtype_bytes_recv.find(msgtype_stats.first);
         if (i == m_msgtype_bytes_recv.end()) {
@@ -2728,8 +2729,12 @@ void CConnman::RecordBytesSent(uint64_t bytes)
     nMaxOutboundTotalBytesSentInCycle += bytes;
 }
 
-void CConnman::RecordBytesSentByMsgType(std::string msg_type, size_t bytes)
+void CConnman::RecordMsgStatsSent(std::string msg_type, size_t bytes, ConnectionType conntype, Network networktype)
 {
+    LogPrint(BCLog::NET, "\nstacie - connection type: %s\n", ConnectionTypeAsString(conntype));
+    LogPrint(BCLog::NET, "\nstacie - network type: %s\n", NetworkAsString(networktype));
+
+    // TODO actually do something with connection type and network
     auto i = m_msgtype_bytes_sent.find(msg_type);
     if (i == m_msgtype_bytes_sent.end()) {
         i = m_msgtype_bytes_sent.find(NET_MESSAGE_TYPE_OTHER);
@@ -2918,11 +2923,7 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
     }
     if (nBytesSent) {
         RecordBytesSent(nBytesSent);
-        // TODO - do we have network type here?
-        // I believe the connection can come from CNode (pnode) - there are methods like IsBlockOnlyConn(), and a private m_conn_type variable,
-        // which can be accessed with CNode::ConnectionTypeAsString()
-        // message count is just one
-        RecordBytesSentByMsgType(msg.m_type, nBytesSent);
+        RecordMsgStatsSent(msg.m_type, nBytesSent, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
     }
 }
 
