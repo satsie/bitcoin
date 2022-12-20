@@ -880,6 +880,8 @@ public:
     /** Return true if we should disconnect the peer for failing an inactivity check. */
     bool ShouldRunInactivityChecks(const CNode& node, std::chrono::seconds now) const;
 
+    void PrintNetMsgStats() const; // Will remove this at the end
+
 private:
     struct ListenSocket {
     public:
@@ -985,9 +987,9 @@ private:
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
     void RecordMsgStatsRecv(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes,
-        ConnectionType conntype, Network networktype);
+                            ConnectionType conn_type, Network net_type);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
-    void RecordMsgStatsSent(std::string msg_type, size_t bytes, ConnectionType conntype, Network networktype);
+    void RecordMsgStatsSent(std::string msg_type, size_t bytes, ConnectionType conn_type, Network net_type);
 
     /**
      Return reachable networks for which we have no addresses in addrman and therefore
@@ -1009,6 +1011,44 @@ private:
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
     mapMsgTypeSize m_msgtype_bytes_recv;
     mapMsgTypeSize m_msgtype_bytes_sent;
+
+    struct NetMsgStatsKey {
+        // protocol.cpp has a list of allNetMessageTypes which use the NetMsgType namespace.
+        // Can I treat NetMsgType like an enum?
+        std::string msg_type;
+        ConnectionType conn_type;
+        Network net_type;
+
+        // Is this correct? Is there a better way to write this?
+        bool operator<(const NetMsgStatsKey& rhs) const
+        {
+            if (msg_type < rhs.msg_type) {
+                return true;
+            } else if (msg_type == rhs.msg_type) {
+                if (conn_type < rhs.conn_type) {
+                    return true;
+                } else if (conn_type == rhs.conn_type) {
+                    if (net_type < rhs.net_type) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        bool operator=(const NetMsgStatsKey& other) const
+        {
+            return (msg_type == other.msg_type && conn_type == other.conn_type && net_type == other.net_type);
+        }
+    };
+
+    struct NetMsgStatsValue {
+        int msg_count;
+        uint64_t num_bytes;
+    };
+
+    std::map<NetMsgStatsKey, NetMsgStatsValue> m_netmsg_stats_recv;
+    std::map<NetMsgStatsKey, NetMsgStatsValue> m_netmsg_stats_sent;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};

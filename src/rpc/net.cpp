@@ -541,6 +541,9 @@ static RPCHelpMan getnettotals()
             NodeContext& node = EnsureAnyNodeContext(request.context);
             const CConnman& connman = EnsureConnman(node);
 
+            // Print a snapshot of the message stats to see if they match what the RPC returns
+            connman.PrintNetMsgStats();
+
             UniValue obj(UniValue::VOBJ);
             obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
             obj.pushKV("totalbytessent", connman.GetTotalBytesSent());
