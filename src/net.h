@@ -1019,7 +1019,6 @@ private:
         ConnectionType conn_type;
         Network net_type;
 
-        // Is this correct? Is there a better way to write this?
         bool operator<(const NetMsgStatsKey& rhs) const
         {
             if (msg_type < rhs.msg_type) {
@@ -1034,11 +1033,6 @@ private:
                 }
             }
             return false;
-        }
-
-        bool operator=(const NetMsgStatsKey& other) const
-        {
-            return (msg_type == other.msg_type && conn_type == other.conn_type && net_type == other.net_type);
         }
     };
 

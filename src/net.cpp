@@ -2712,18 +2712,16 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::tuple<int, uint64_t
 
             NetMsgStatsKey stats_key = {msg_type, conn_type, net_type};
 
-            LogPrint(BCLog::NET, "\nstacie - incremeting received message count by %d, num_bytes by %d for (%s, %s, %s)\n",
-                     msg_count, num_bytes, msg_type, ConnectionTypeAsString(conn_type), NetworkAsString(net_type));
+            // LogPrint(BCLog::NET, "\nstacie - incremeting received message count by %d, num_bytes by %d for (%s, %s, %s)\n",
+            //          msg_count, num_bytes, msg_type, ConnectionTypeAsString(conn_type), NetworkAsString(net_type));
             auto stats_iterator = m_netmsg_stats_recv.find(stats_key);
 
             // If this stat does not exist, add it (could also initialize all stats to zero?)
             if (stats_iterator == m_netmsg_stats_recv.end()) {
-                LogPrint(BCLog::NET, "\nstacie - creating a new entry in the map\n");
                 NetMsgStatsValue stats_value = {msg_count, num_bytes};
                 m_netmsg_stats_recv.insert(std::map<NetMsgStatsKey, NetMsgStatsValue>::value_type(stats_key, stats_value));
             } else {
                 // otherwise, update the message count and number of bytes
-                LogPrint(BCLog::NET, "\nstacie - adding to existing entry instead of making a new one\n");
                 stats_iterator->second.msg_count += msg_count;
                 stats_iterator->second.num_bytes += num_bytes;
             }
@@ -2733,18 +2731,6 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::tuple<int, uint64_t
 
 void CConnman::PrintNetMsgStats() const
 {
-    std::map<NetMsgStatsKey, NetMsgStatsValue>::const_iterator recv_print_iterator = m_netmsg_stats_recv.begin();
-    while (recv_print_iterator != m_netmsg_stats_recv.end()) {
-        LogPrint(BCLog::NET, "\nstacie - Recieved messages: key(%s, %s, %s), value(%d, %d)\n",
-                 recv_print_iterator->first.msg_type,
-                 ConnectionTypeAsString(recv_print_iterator->first.conn_type),
-                 NetworkAsString(recv_print_iterator->first.net_type),
-                 recv_print_iterator->second.msg_count,
-                 recv_print_iterator->second.num_bytes);
-
-        ++recv_print_iterator;
-    }
-
     std::map<NetMsgStatsKey, NetMsgStatsValue>::const_iterator sent_print_iterator = m_netmsg_stats_sent.begin();
     while (sent_print_iterator != m_netmsg_stats_sent.end()) {
         LogPrint(BCLog::NET, "\nstacie - Sent messages: key(%s, %s, %s), value(%d, %d)\n",
@@ -2755,6 +2741,18 @@ void CConnman::PrintNetMsgStats() const
                  sent_print_iterator->second.num_bytes);
 
         ++sent_print_iterator;
+    }
+
+    std::map<NetMsgStatsKey, NetMsgStatsValue>::const_iterator recv_print_iterator = m_netmsg_stats_recv.begin();
+    while (recv_print_iterator != m_netmsg_stats_recv.end()) {
+        LogPrint(BCLog::NET, "\nstacie - Recieved messages: key(%s, %s, %s), value(%d, %d)\n",
+                 recv_print_iterator->first.msg_type,
+                 ConnectionTypeAsString(recv_print_iterator->first.conn_type),
+                 NetworkAsString(recv_print_iterator->first.net_type),
+                 recv_print_iterator->second.msg_count,
+                 recv_print_iterator->second.num_bytes);
+
+        ++recv_print_iterator;
     }
 }
 
@@ -2789,18 +2787,16 @@ void CConnman::RecordMsgStatsSent(std::string msg_type, size_t bytes, Connection
         i->second += bytes;
 
         NetMsgStatsKey stats_key = {msg_type, conn_type, net_type};
-        LogPrint(BCLog::NET, "\nstacie - incremeting sent message count by 1, num_bytes by %d for (%s, %s, %s)\n",
-                 bytes, msg_type, ConnectionTypeAsString(conn_type), NetworkAsString(net_type));
+        // LogPrint(BCLog::NET, "\nstacie - incremeting sent message count by 1, num_bytes by %d for (%s, %s, %s)\n",
+        //          bytes, msg_type, ConnectionTypeAsString(conn_type), NetworkAsString(net_type));
         auto stats_iterator = m_netmsg_stats_sent.find(stats_key);
 
         // If this stat does not exist, add it (could also initialize all stats to zero?)
         if (stats_iterator == m_netmsg_stats_sent.end()) {
-            LogPrint(BCLog::NET, "\nstacie - creating a new entry in the map\n");
             NetMsgStatsValue stats_value = {1, bytes};
             m_netmsg_stats_sent.insert(std::map<NetMsgStatsKey, NetMsgStatsValue>::value_type(stats_key, stats_value));
         } else {
             // otherwise, update the message count and number of bytes
-            LogPrint(BCLog::NET, "\nstacie - adding to existing entry instead of making a new one\n");
             stats_iterator->second.msg_count += 1;
             stats_iterator->second.num_bytes += bytes;
         }
