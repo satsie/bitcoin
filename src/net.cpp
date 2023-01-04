@@ -2729,30 +2729,76 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::tuple<int, uint64_t
     }
 }
 
-void CConnman::PrintNetMsgStats() const
+std::map<std::string, CConnman::NetMsgStatsValue> CConnman::AggregateNetMsgStats(const std::map<NetMsgStatsKey, NetMsgStatsValue>& raw_stats, int filters[]) const
 {
-    std::map<NetMsgStatsKey, NetMsgStatsValue>::const_iterator sent_print_iterator = m_netmsg_stats_sent.begin();
-    while (sent_print_iterator != m_netmsg_stats_sent.end()) {
-        LogPrint(BCLog::NET, "\nstacie - Sent messages: key(%s, %s, %s), value(%d, %d)\n",
-                 sent_print_iterator->first.msg_type,
-                 ConnectionTypeAsString(sent_print_iterator->first.conn_type),
-                 NetworkAsString(sent_print_iterator->first.net_type),
-                 sent_print_iterator->second.msg_count,
-                 sent_print_iterator->second.num_bytes);
+    // An object for the results
+    // The depth of the return object depends on the number of filters
+    // ideally this would be JSON but that appears to be hard to do in C++
+    std::map<std::string, NetMsgStatsValue> aggregate_stats = {};
 
-        ++sent_print_iterator;
+    const int num_filters = sizeof(filters) / sizeof(filters[0]);
+
+    // Iterate over the raw stats
+    std::map<NetMsgStatsKey, NetMsgStatsValue>::const_iterator raw_stats_itr = raw_stats.begin();
+    while (raw_stats_itr != raw_stats.end()) {
+        std::string key_string = "";
+
+        for (int i = 0; i < num_filters; i++) {
+            int filter = filters[i];
+
+            if (filter == 0) {
+                // What is the message type?
+                key_string += raw_stats_itr->first.msg_type;
+            } else if (filter == 1) {
+                // What is the connection type?
+                key_string += ConnectionTypeAsString(raw_stats_itr->first.conn_type);
+            } else {
+                // What is the network type?
+                key_string += NetworkAsString(raw_stats_itr->first.net_type);
+            }
+
+            key_string += ","; // keys are strings, need a delimiter
+        }
+
+        key_string.pop_back();
+
+        // Does the value for this exist in the result object?
+        auto in_result = aggregate_stats.find(key_string);
+
+        // if it does not, create it
+        if (in_result == aggregate_stats.end()) {
+            NetMsgStatsValue stats = {raw_stats_itr->second.msg_count, raw_stats_itr->second.num_bytes};
+            aggregate_stats.insert({key_string, stats});
+        } else {
+            in_result->second.msg_count += raw_stats_itr->second.msg_count;
+            in_result->second.num_bytes += raw_stats_itr->second.num_bytes;
+        }
+        ++raw_stats_itr;
     }
 
-    std::map<NetMsgStatsKey, NetMsgStatsValue>::const_iterator recv_print_iterator = m_netmsg_stats_recv.begin();
-    while (recv_print_iterator != m_netmsg_stats_recv.end()) {
-        LogPrint(BCLog::NET, "\nstacie - Recieved messages: key(%s, %s, %s), value(%d, %d)\n",
-                 recv_print_iterator->first.msg_type,
-                 ConnectionTypeAsString(recv_print_iterator->first.conn_type),
-                 NetworkAsString(recv_print_iterator->first.net_type),
-                 recv_print_iterator->second.msg_count,
-                 recv_print_iterator->second.num_bytes);
+    return aggregate_stats;
+}
 
-        ++recv_print_iterator;
+void CConnman::PrintNetMsgStats() const
+{
+    // Aggregate the messsages by different filters
+    // 0 = message type
+    // 1 = connection type
+    // 2 = network type
+    int filters[] = {0, 2, 1};
+
+    // An object for the results
+    // The depth of the return object depends on the number of filters
+    std::map<std::string, NetMsgStatsValue> agg_sent_stats = AggregateNetMsgStats(m_netmsg_stats_sent, filters);
+    std::map<std::string, NetMsgStatsValue> agg_received_stats = {};
+
+    std::map<std::string, NetMsgStatsValue>::const_iterator agg_sent_stats_print_iterator = agg_sent_stats.begin();
+    while (agg_sent_stats_print_iterator != agg_sent_stats.end()) {
+        LogPrintf("\nstacie - key: %s", agg_sent_stats_print_iterator->first);
+        LogPrintf("\nstacie -     msg count: %d", agg_sent_stats_print_iterator->second.msg_count);
+        LogPrintf("\nstacie -     byte count: %d", agg_sent_stats_print_iterator->second.num_bytes);
+
+        ++agg_sent_stats_print_iterator;
     }
 }
 

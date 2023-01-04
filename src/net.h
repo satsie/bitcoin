@@ -1044,6 +1044,8 @@ private:
     std::map<NetMsgStatsKey, NetMsgStatsValue> m_netmsg_stats_recv;
     std::map<NetMsgStatsKey, NetMsgStatsValue> m_netmsg_stats_sent;
 
+    std::map<std::string, NetMsgStatsValue> AggregateNetMsgStats(const std::map<NetMsgStatsKey, NetMsgStatsValue>& raw_stats, int filters[]) const;
+
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};
     std::chrono::seconds nMaxOutboundCycleStartTime GUARDED_BY(m_total_bytes_sent_mutex) {0};
