@@ -870,6 +870,14 @@ public:
     mapMsgTypeSize GetTotalBytesRecvByMsgType() const;
     mapMsgTypeSize GetTotalBytesSentByMsgType() const;
 
+    struct NetMsgStatsValue {
+        int msg_count;
+        uint64_t num_bytes;
+    };
+
+    std::map<std::string, NetMsgStatsValue> AggregateSentMsgStats(std::vector<int> filters) const;
+    std::map<std::string, NetMsgStatsValue> AggregateRecvMsgStats(std::vector<int> filters) const;
+
     /** Get a unique deterministic randomizer. */
     CSipHasher GetDeterministicRandomizer(uint64_t id) const;
 
@@ -1036,15 +1044,10 @@ private:
         }
     };
 
-    struct NetMsgStatsValue {
-        int msg_count;
-        uint64_t num_bytes;
-    };
-
     std::map<NetMsgStatsKey, NetMsgStatsValue> m_netmsg_stats_recv;
     std::map<NetMsgStatsKey, NetMsgStatsValue> m_netmsg_stats_sent;
 
-    std::map<std::string, NetMsgStatsValue> AggregateNetMsgStats(const std::map<NetMsgStatsKey, NetMsgStatsValue>& raw_stats, int filters[]) const;
+    std::map<std::string, NetMsgStatsValue> AggregateNetMsgStats(const std::map<NetMsgStatsKey, NetMsgStatsValue>& raw_stats, std::vector<int> filters) const;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};

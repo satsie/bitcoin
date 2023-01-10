@@ -131,6 +131,7 @@ const std::vector<std::string> RPC_COMMANDS_SAFE_FOR_FUZZING{
     "gettxspendingprevout",
     "getmempoolinfo",
     "getmininginfo",
+    "getnetmsgstats",  // TODO does this belong here?
     "getnettotals",
     "getnetworkhashps",
     "getnetworkinfo",

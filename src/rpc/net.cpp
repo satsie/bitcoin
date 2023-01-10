@@ -33,6 +33,8 @@
 
 #include <univalue.h>
 
+#include <logging.h>
+
 using node::NodeContext;
 
 const std::vector<std::string> CONNECTION_TYPE_DOC{
@@ -509,6 +511,112 @@ static RPCHelpMan getaddednodeinfo()
     };
 }
 
+static RPCHelpMan getnetmsgstats()
+{
+    return RPCHelpMan{
+        "getnetmsgstats",
+        "\nReturns the message count and total number of bytes for sent and received network traffic.\n"
+        "Results may optionally be broken down by one or more of the following filters:\n"
+        "msgtype, network, connectiontype\n", // TODO should this be msg_type, network, and connection_type/conn_type?
+        {
+            {"filters", RPCArg::Type::ARR, RPCArg::Optional::OMITTED, "An array of filters for breaking down the results",
+                {
+                    {"filter", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter to break results down by.\n"
+                        "Valid options are: msgtype, network, and conntype."}
+                }
+            }
+        },
+        RPCResult{
+            RPCResult::Type::OBJ, "", "",
+            {
+                {RPCResult::Type::OBJ_DYN, "sent", "Statistics for sent network traffic.\n"
+                                        "When a message type, connection type, or network type is not listed,\n"
+                                        "the statistics for that type are 0.",
+                {
+                    {RPCResult::Type::OBJ, "", "message count and byte total",
+                        {
+                            {RPCResult::Type::NUM, "msg_count", "Total number of messages sent"},
+                            {RPCResult::Type::NUM, "total_bytes", "Total number of bytes sent"}
+                        }
+                    }
+                }},
+                {RPCResult::Type::OBJ_DYN, "received", "Statistics for received network traffic.\n"
+                                        "When a message type, connection type, or network type is not listed,\n"
+                                        "the statistics for that type are 0.",
+                {
+                    {RPCResult::Type::OBJ, "", "message count and byte total",
+                        {
+                            {RPCResult::Type::NUM, "msg_count", "Total number of messages sent"},
+                            {RPCResult::Type::NUM, "total_bytes", "Total number of bytes sent"}
+                        }
+                    }
+                }}
+            }
+        },
+        RPCExamples {
+            HelpExampleCli("getnetmsgstats", R"('["connectiontype","msgtype"]')") +
+            HelpExampleRpc("getnetmsgstats", R"(["connectiontype","msgtype"])")
+        },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        {
+            NodeContext& node = EnsureAnyNodeContext(request.context);
+            const CConnman& connman = EnsureConnman(node);
+
+            connman.PrintNetMsgStats();
+
+            std::vector<int> filters;
+
+            if (!request.params[0].isNull()) {
+                // Probably want to come back and make the filter types an enum
+                // Aggregate the messsages by different filters
+                // 0 = message type
+                // 1 = connection type
+                // 2 = network type
+
+                const UniValue raw_filters = request.params[0].get_array();
+
+                for (unsigned int i = 0; i < raw_filters.size(); ++i) {
+                    std::string filter = raw_filters[i].get_str();
+
+                    if (filter == "msgtype") {
+                        filters.push_back(0);
+                    } else if (filter == "network") {
+                        filters.push_back(1);
+                    } else if (filter == "connectiontype") {
+                        filters.push_back(2);
+                    } // TODO an else clause that tells user the filter they listed was invalid
+                }
+            }
+
+            UniValue obj(UniValue::VOBJ);
+
+            std::map<std::string, CConnman::NetMsgStatsValue> raw_sent_stats = connman.AggregateSentMsgStats(filters);
+            LogPrintf("\nstacie - got sent msg stats\n");
+
+            UniValue sent_stats(UniValue::VOBJ);
+            for (const auto& i : raw_sent_stats) {
+                if (i.second.msg_count > 0 || i.second.num_bytes > 0) {
+                    UniValue stats(UniValue::VOBJ);
+                    stats.pushKV("msg_count", i.second.msg_count);
+                    stats.pushKV("total_bytes", i.second.num_bytes);
+                    sent_stats.pushKV(i.first, stats);
+                }
+            }
+
+            LogPrintf("\nstacie - created sent stats object\n");
+
+            obj.pushKV("sent", sent_stats);
+            LogPrintf("\nstacie - populated sent stats object\n");
+
+            std::map<std::string, CConnman::NetMsgStatsValue> recv_stats = connman.AggregateRecvMsgStats(filters);
+            // TODO: fill in the received stats!! then push!
+            obj.pushKV("received", sent_stats);
+
+            return obj;
+        }
+    };
+}
+
 static RPCHelpMan getnettotals()
 {
     return RPCHelpMan{
@@ -540,9 +648,6 @@ static RPCHelpMan getnettotals()
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
             NodeContext& node = EnsureAnyNodeContext(request.context);
             const CConnman& connman = EnsureConnman(node);
-
-            // Print a snapshot of the message stats to see if they match what the RPC returns
-            connman.PrintNetMsgStats();
 
             UniValue obj(UniValue::VOBJ);
             obj.pushKV("totalbytesrecv", connman.GetTotalBytesRecv());
@@ -995,6 +1100,7 @@ void RegisterNetRPCCommands(CRPCTable& t)
         {"network", &addnode},
         {"network", &disconnectnode},
         {"network", &getaddednodeinfo},
+        {"network", &getnetmsgstats},
         {"network", &getnettotals},
         {"network", &getnetworkinfo},
         {"network", &setban},

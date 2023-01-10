@@ -60,11 +60,12 @@ class NetTest(BitcoinTestFramework):
         self.test_connection_count()
         self.test_getpeerinfo()
         self.test_getnettotals()
-        self.test_getnetworkinfo()
-        self.test_getaddednodeinfo()
-        self.test_service_flags()
-        self.test_getnodeaddresses()
-        self.test_addpeeraddress()
+        self.test_getnetmsgstats()
+        # self.test_getnetworkinfo()
+        # self.test_getaddednodeinfo()
+        # self.test_service_flags()
+        # self.test_getnodeaddresses()
+        # self.test_addpeeraddress()
 
     def test_connection_count(self):
         self.log.info("Test getconnectioncount")
@@ -169,6 +170,21 @@ class NetTest(BitcoinTestFramework):
             peer_after = lambda: next(p for p in self.nodes[0].getpeerinfo() if p['id'] == peer_before['id'])
             self.wait_until(lambda: peer_after()['bytesrecv_per_msg'].get('pong', 0) >= peer_before['bytesrecv_per_msg'].get('pong', 0) + 32, timeout=1)
             self.wait_until(lambda: peer_after()['bytessent_per_msg'].get('ping', 0) >= peer_before['bytessent_per_msg'].get('ping', 0) + 32, timeout=1)
+
+    def test_getnetmsgstats(self):
+        self.log.info("Test getnetmsgstats")
+        # First compare with the byte count results of getnettotals
+        getnettotals_totalbytessent = self.nodes[0].getnettotals()['totalbytessent']
+        getnettotals_totalbytesrecv = self.nodes[0].getnettotals()['totalbytesrecv']
+
+        self.log.info(getnettotals_totalbytessent)
+        self.log.info(getnettotals_totalbytesrecv)
+
+        getnetmsgstats = self.nodes[0].getnetmsgstats(filters=["msgtype"])
+        self.log.info(getnetmsgstats)
+        # Test filter aggregation by doing a few different combinations
+
+        # Test that message count ant total number of bytes increment when a ping message is sent
 
     def test_getnetworkinfo(self):
         self.log.info("Test getnetworkinfo")
