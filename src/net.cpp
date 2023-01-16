@@ -668,7 +668,7 @@ void CNode::CopyStats(CNodeStats& stats)
 #undef X
 
 bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
-                            std::map<std::string, std::tuple<int, uint64_t>>& msgtype_countbytes)
+                            std::map<std::string, std::pair<int, uint64_t>>& msgtype_countbytes)
 {
     complete = false;
     const auto time = GetTime<std::chrono::microseconds>();
@@ -710,10 +710,9 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
             }
             assert(j != msgtype_countbytes.end());
 
-            // I'm guessing the C++ here could use some improvement..
-            std::tuple<int, uint64_t> count_bytes = j->second;
-            std::get<0>(count_bytes) += 1;
-            std::get<1>(count_bytes) += msg.m_raw_message_size;
+            std::pair<int, uint64_t> count_bytes = j->second;
+            ++count_bytes.first;
+            count_bytes.second += msg.m_raw_message_size;
 
             j->second = count_bytes;
 
@@ -1341,12 +1340,12 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
 
                 // a map to store each message type mapped to the total message count,
                 // as well as the total number of message bytes
-                std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes;
+                std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes;
 
                 // initialize all message type values to zero
                 for (const std::string& msg : getAllNetMessageTypes())
-                    msgtype_countbytes[msg] = std::make_tuple(0, 0);
-                msgtype_countbytes[NET_MESSAGE_TYPE_OTHER] = std::make_tuple(0, 0);
+                    msgtype_countbytes[msg] = std::make_pair(0, 0);
+                msgtype_countbytes[NET_MESSAGE_TYPE_OTHER] = std::make_pair(0, 0);
 
                 if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, msgtype_countbytes)) {
                     pnode->CloseSocketDisconnect();
@@ -2691,7 +2690,7 @@ void CConnman::RecordBytesRecv(uint64_t bytes)
     nTotalBytesRecv += bytes;
 }
 
-void CConnman::RecordMsgStatsRecv(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes,
+void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes,
                                   ConnectionType conn_type, Network net_type)
 {
     for (auto const& msgtype_stats : msgtype_countbytes) {

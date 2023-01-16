@@ -553,14 +553,14 @@ public:
      * @param[in]   msg_bytes   The raw data
      * @param[out]  complete    Set True if at least one message has been
      *                          deserialized and is ready to be processed
-     * @param[out]  msgtype_countbytes   The message types mapped to a tuple
+     * @param[out]  msgtype_countbytes   The message types mapped to a pair
      *                          that contains the total message count and
      *                          total number of message bytes
      * @return  True if the peer should stay connected,
      *          False if the peer should be disconnected from.
      */
     bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
-                         std::map<std::string, std::tuple<int, uint64_t>>& msgtype_bytes) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
+                         std::map<std::string, std::pair<int, uint64_t>>& msgtype_bytes) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
 
     void SetCommonVersion(int greatest_common_version)
     {
@@ -994,7 +994,7 @@ private:
 
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
-    void RecordMsgStatsRecv(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes,
+    void RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes,
                             ConnectionType conn_type, Network net_type);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
     void RecordMsgStatsSent(std::string msg_type, size_t bytes, ConnectionType conn_type, Network net_type);
