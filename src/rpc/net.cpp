@@ -590,15 +590,15 @@ static RPCHelpMan getnetmsgstats()
 
             UniValue obj(UniValue::VOBJ);
 
-            std::map<std::string, CConnman::NetMsgStatsValue> raw_sent_stats = connman.AggregateSentMsgStats(filters);
+            std::map<std::string, CConnman::MsgStatsValue> raw_sent_stats = connman.AggregateSentMsgStats(filters);
             LogPrintf("\nstacie - got sent msg stats\n");
 
             UniValue sent_stats(UniValue::VOBJ);
             for (const auto& i : raw_sent_stats) {
-                if (i.second.msg_count > 0 || i.second.num_bytes > 0) {
+                if (i.second.msg_count > 0 || i.second.byte_count > 0) {
                     UniValue stats(UniValue::VOBJ);
                     stats.pushKV("msg_count", i.second.msg_count);
-                    stats.pushKV("total_bytes", i.second.num_bytes);
+                    stats.pushKV("total_bytes", i.second.byte_count);
                     sent_stats.pushKV(i.first, stats);
                 }
             }
@@ -608,7 +608,7 @@ static RPCHelpMan getnetmsgstats()
             obj.pushKV("sent", sent_stats);
             LogPrintf("\nstacie - populated sent stats object\n");
 
-            std::map<std::string, CConnman::NetMsgStatsValue> recv_stats = connman.AggregateRecvMsgStats(filters);
+            std::map<std::string, CConnman::MsgStatsValue> recv_stats = connman.AggregateRecvMsgStats(filters);
             // TODO: fill in the received stats!! then push!
             obj.pushKV("received", sent_stats);
 

@@ -870,13 +870,13 @@ public:
     mapMsgTypeSize GetTotalBytesRecvByMsgType() const;
     mapMsgTypeSize GetTotalBytesSentByMsgType() const;
 
-    struct NetMsgStatsValue {
+    struct MsgStatsValue {
         int msg_count;
-        uint64_t num_bytes;
+        uint64_t byte_count;
     };
 
-    std::map<std::string, NetMsgStatsValue> AggregateSentMsgStats(std::vector<int> filters) const;
-    std::map<std::string, NetMsgStatsValue> AggregateRecvMsgStats(std::vector<int> filters) const;
+    std::map<std::string, MsgStatsValue> AggregateSentMsgStats(std::vector<int> filters) const;
+    std::map<std::string, MsgStatsValue> AggregateRecvMsgStats(std::vector<int> filters) const;
 
     /** Get a unique deterministic randomizer. */
     CSipHasher GetDeterministicRandomizer(uint64_t id) const;
@@ -1020,14 +1020,14 @@ private:
     mapMsgTypeSize m_msgtype_bytes_recv;
     mapMsgTypeSize m_msgtype_bytes_sent;
 
-    struct NetMsgStatsKey {
+    struct MsgStatsKey {
         // protocol.cpp has a list of allNetMessageTypes which use the NetMsgType namespace.
         // Can I treat NetMsgType like an enum?
         std::string msg_type;
         ConnectionType conn_type;
         Network net_type;
 
-        bool operator<(const NetMsgStatsKey& rhs) const
+        bool operator<(const MsgStatsKey& rhs) const
         {
             if (msg_type < rhs.msg_type) {
                 return true;
@@ -1044,10 +1044,10 @@ private:
         }
     };
 
-    std::map<NetMsgStatsKey, NetMsgStatsValue> m_netmsg_stats_recv;
-    std::map<NetMsgStatsKey, NetMsgStatsValue> m_netmsg_stats_sent;
+    std::map<MsgStatsKey, MsgStatsValue> m_netmsg_stats_recv;
+    std::map<MsgStatsKey, MsgStatsValue> m_netmsg_stats_sent;
 
-    std::map<std::string, NetMsgStatsValue> AggregateNetMsgStats(const std::map<NetMsgStatsKey, NetMsgStatsValue>& raw_stats, std::vector<int> filters) const;
+    std::map<std::string, MsgStatsValue> AggregateNetMsgStats(const std::map<MsgStatsKey, MsgStatsValue>& raw_stats, std::vector<int> filters) const;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};

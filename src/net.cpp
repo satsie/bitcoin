@@ -2709,7 +2709,7 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>
         if (num_bytes > 0) {
             i->second += num_bytes;
 
-            NetMsgStatsKey stats_key = {msg_type, conn_type, net_type};
+            MsgStatsKey stats_key = {msg_type, conn_type, net_type};
 
             // LogPrint(BCLog::NET, "\nstacie - incremeting received message count by %d, num_bytes by %d for (%s, %s, %s)\n",
             //          msg_count, num_bytes, msg_type, ConnectionTypeAsString(conn_type), NetworkAsString(net_type));
@@ -2717,29 +2717,29 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>
 
             // If this stat does not exist, add it (could also initialize all stats to zero?)
             if (stats_iterator == m_netmsg_stats_recv.end()) {
-                NetMsgStatsValue stats_value = {msg_count, num_bytes};
-                m_netmsg_stats_recv.insert(std::map<NetMsgStatsKey, NetMsgStatsValue>::value_type(stats_key, stats_value));
+                MsgStatsValue stats_value = {msg_count, num_bytes};
+                m_netmsg_stats_recv.insert(std::map<MsgStatsKey, MsgStatsValue>::value_type(stats_key, stats_value));
             } else {
                 // otherwise, update the message count and number of bytes
                 stats_iterator->second.msg_count += msg_count;
-                stats_iterator->second.num_bytes += num_bytes;
+                stats_iterator->second.byte_count += num_bytes;
             }
         }
     }
 }
 
-std::map<std::string, CConnman::NetMsgStatsValue> CConnman::AggregateNetMsgStats(const std::map<NetMsgStatsKey, NetMsgStatsValue>& raw_stats, std::vector<int> filters) const
+std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(const std::map<MsgStatsKey, MsgStatsValue>& raw_stats, std::vector<int> filters) const
 {
     // An object for the results
     // The depth of the return object depends on the number of filters
     // ideally this would be JSON but that appears to be hard to do in C++
-    std::map<std::string, NetMsgStatsValue> aggregate_stats = {};
+    std::map<std::string, MsgStatsValue> aggregate_stats = {};
 
     int num_filters = filters.size();
 
     // Iterate over the raw stats
     // TODO I'm not sure if the default case of no filters works
-    std::map<NetMsgStatsKey, NetMsgStatsValue>::const_iterator raw_stats_itr = raw_stats.begin();
+    std::map<MsgStatsKey, MsgStatsValue>::const_iterator raw_stats_itr = raw_stats.begin();
     while (raw_stats_itr != raw_stats.end()) {
         std::string key_string = "stats.";
 
@@ -2767,11 +2767,11 @@ std::map<std::string, CConnman::NetMsgStatsValue> CConnman::AggregateNetMsgStats
 
         // if it does not, create it
         if (in_result == aggregate_stats.end()) {
-            NetMsgStatsValue stats = {raw_stats_itr->second.msg_count, raw_stats_itr->second.num_bytes};
+            MsgStatsValue stats = {raw_stats_itr->second.msg_count, raw_stats_itr->second.byte_count};
             aggregate_stats.insert({key_string, stats});
         } else {
             in_result->second.msg_count += raw_stats_itr->second.msg_count;
-            in_result->second.num_bytes += raw_stats_itr->second.num_bytes;
+            in_result->second.byte_count += raw_stats_itr->second.byte_count;
         }
         ++raw_stats_itr;
     }
@@ -2779,12 +2779,12 @@ std::map<std::string, CConnman::NetMsgStatsValue> CConnman::AggregateNetMsgStats
     return aggregate_stats;
 }
 
-std::map<std::string, CConnman::NetMsgStatsValue> CConnman::AggregateSentMsgStats(std::vector<int> filters) const
+std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateSentMsgStats(std::vector<int> filters) const
 {
     return AggregateNetMsgStats(m_netmsg_stats_sent, filters);
 }
 
-std::map<std::string, CConnman::NetMsgStatsValue> CConnman::AggregateRecvMsgStats(std::vector<int> filters) const
+std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateRecvMsgStats(std::vector<int> filters) const
 {
     return AggregateNetMsgStats(m_netmsg_stats_recv, filters);
 }
@@ -2799,25 +2799,25 @@ void CConnman::PrintNetMsgStats() const
 
     // An object for the results
     // The depth of the return object depends on the number of filters
-    std::map<std::string, NetMsgStatsValue> agg_sent_stats = AggregateSentMsgStats(filters);
-    std::map<std::string, NetMsgStatsValue> agg_recv_stats = AggregateRecvMsgStats(filters);
+    std::map<std::string, MsgStatsValue> agg_sent_stats = AggregateSentMsgStats(filters);
+    std::map<std::string, MsgStatsValue> agg_recv_stats = AggregateRecvMsgStats(filters);
 
     LogPrintf("\n\nstacie - ===== SENT =====");
-    std::map<std::string, NetMsgStatsValue>::const_iterator agg_sent_stats_print_iterator = agg_sent_stats.begin();
+    std::map<std::string, MsgStatsValue>::const_iterator agg_sent_stats_print_iterator = agg_sent_stats.begin();
     while (agg_sent_stats_print_iterator != agg_sent_stats.end()) {
         LogPrintf("\nstacie - key: %s", agg_sent_stats_print_iterator->first);
         LogPrintf("\nstacie -     msg count: %d", agg_sent_stats_print_iterator->second.msg_count);
-        LogPrintf("\nstacie -     byte count: %d", agg_sent_stats_print_iterator->second.num_bytes);
+        LogPrintf("\nstacie -     byte count: %d", agg_sent_stats_print_iterator->second.byte_count);
 
         ++agg_sent_stats_print_iterator;
     }
 
     LogPrintf("\n\nstacie - ===== RECEIVED =====");
-    std::map<std::string, NetMsgStatsValue>::const_iterator agg_recv_stats_print_iterator = agg_recv_stats.begin();
+    std::map<std::string, MsgStatsValue>::const_iterator agg_recv_stats_print_iterator = agg_recv_stats.begin();
     while (agg_recv_stats_print_iterator != agg_recv_stats.end()) {
         LogPrintf("\nstacie - key: %s", agg_recv_stats_print_iterator->first);
         LogPrintf("\nstacie -     msg count: %d", agg_recv_stats_print_iterator->second.msg_count);
-        LogPrintf("\nstacie -     byte count: %d", agg_recv_stats_print_iterator->second.num_bytes);
+        LogPrintf("\nstacie -     byte count: %d", agg_recv_stats_print_iterator->second.byte_count);
 
         ++agg_recv_stats_print_iterator;
     }    
@@ -2853,19 +2853,19 @@ void CConnman::RecordMsgStatsSent(std::string msg_type, size_t bytes, Connection
     if (bytes > 0) {
         i->second += bytes;
 
-        NetMsgStatsKey stats_key = {msg_type, conn_type, net_type};
+        MsgStatsKey stats_key = {msg_type, conn_type, net_type};
         // LogPrint(BCLog::NET, "\nstacie - incremeting sent message count by 1, num_bytes by %d for (%s, %s, %s)\n",
         //          bytes, msg_type, ConnectionTypeAsString(conn_type), NetworkAsString(net_type));
         auto stats_iterator = m_netmsg_stats_sent.find(stats_key);
 
         // If this stat does not exist, add it (could also initialize all stats to zero?)
         if (stats_iterator == m_netmsg_stats_sent.end()) {
-            NetMsgStatsValue stats_value = {1, bytes};
-            m_netmsg_stats_sent.insert(std::map<NetMsgStatsKey, NetMsgStatsValue>::value_type(stats_key, stats_value));
+            MsgStatsValue stats_value = {1, bytes};
+            m_netmsg_stats_sent.insert(std::map<MsgStatsKey, MsgStatsValue>::value_type(stats_key, stats_value));
         } else {
             // otherwise, update the message count and number of bytes
             stats_iterator->second.msg_count += 1;
-            stats_iterator->second.num_bytes += bytes;
+            stats_iterator->second.byte_count += bytes;
         }
     }
 }
