@@ -2730,7 +2730,7 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(co
     // ideally this would be JSON but that appears to be hard to do in C++
     std::map<std::string, MsgStatsValue> aggregate_stats = {};
 
-    int num_filters = filters.size();
+    const size_t num_filters = filters.size();
 
     // Iterate over the raw stats
     // TODO I'm not sure if the default case of no filters works
