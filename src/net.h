@@ -993,7 +993,6 @@ private:
     void DumpAddresses();
 
     // Network stats
-    void RecordBytesRecv(uint64_t bytes);
     void RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes,
                             ConnectionType conn_type, Network net_type);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);

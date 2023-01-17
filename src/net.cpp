@@ -1350,7 +1350,6 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                 if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, msgtype_countbytes)) {
                     pnode->CloseSocketDisconnect();
                 }
-                RecordBytesRecv(nBytes);
                 RecordMsgStatsRecv(msgtype_countbytes, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
 
                 if (notify) {
@@ -2685,11 +2684,6 @@ bool CConnman::DisconnectNode(NodeId id)
     return false;
 }
 
-void CConnman::RecordBytesRecv(uint64_t bytes)
-{
-    nTotalBytesRecv += bytes;
-}
-
 void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes,
                                   ConnectionType conn_type, Network net_type)
 {
@@ -2707,6 +2701,7 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>
         uint64_t num_bytes = std::get<1>(count_bytes);
 
         if (num_bytes > 0) {
+            nTotalBytesRecv += num_bytes;
             i->second += num_bytes;
 
             MsgStatsKey stats_key = {msg_type, conn_type, net_type};
