@@ -2707,7 +2707,7 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>
             MsgStatsKey stats_key = {msg_type, conn_type, net_type};
 
             // LogPrint(BCLog::NET, "\nstacie - incremeting received message count by %d, num_bytes by %d for (%s, %s, %s)\n",
-            //          msg_count, num_bytes, msg_type, ConnectionTypeAsString(conn_type), NetworkAsString(net_type));
+            //          msg_count, num_bytes, msg_type, ConnectionTypeAsString(conn_type), GetNetworkName(net_type));
             auto stats_iterator = m_netmsg_stats_recv.find(stats_key);
 
             // If this stat does not exist, add it (could also initialize all stats to zero?)
@@ -2749,7 +2749,7 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(co
                 key_string += ConnectionTypeAsString(raw_stats_itr->first.conn_type);
             } else {
                 // What is the network type?
-                key_string += NetworkAsString(raw_stats_itr->first.net_type);
+                key_string += GetNetworkName(raw_stats_itr->first.net_type);
             }
 
             key_string += "."; // keys are strings, need a delimiter
@@ -2850,7 +2850,7 @@ void CConnman::RecordMsgStatsSent(std::string msg_type, size_t bytes, Connection
 
         MsgStatsKey stats_key = {msg_type, conn_type, net_type};
         // LogPrint(BCLog::NET, "\nstacie - incremeting sent message count by 1, num_bytes by %d for (%s, %s, %s)\n",
-        //          bytes, msg_type, ConnectionTypeAsString(conn_type), NetworkAsString(net_type));
+        //          bytes, msg_type, ConnectionTypeAsString(conn_type), GetNetworkName(net_type));
         auto stats_iterator = m_netmsg_stats_sent.find(stats_key);
 
         // If this stat does not exist, add it (could also initialize all stats to zero?)

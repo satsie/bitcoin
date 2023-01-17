@@ -588,30 +588,6 @@ static std::string IPv6ToString(Span<const uint8_t> a, uint32_t scope_id)
     return r;
 }
 
-std::string NetworkAsString(Network network)
-{
-    switch (network) {
-    case Network::NET_UNROUTABLE:
-        return "unroutable";
-    case Network::NET_IPV4:
-        return "ipv4";
-    case Network::NET_IPV6:
-        return "ipv6";
-    case Network::NET_ONION:
-        return "onion";
-    case Network::NET_I2P:
-        return "i2p";
-    case Network::NET_CJDNS:
-        return "cjdns";
-    case Network::NET_INTERNAL:
-        return "internal";
-    case Network::NET_MAX:
-        return "max";
-    } // no default case, so the compiler can warn about missing cases
-
-    assert(false);
-}
-
 std::string OnionToString(Span<const uint8_t> addr)
 {
     uint8_t checksum[torv3::CHECKSUM_LEN];
