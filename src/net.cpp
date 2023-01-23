@@ -2742,7 +2742,7 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(co
     while (raw_stats_itr != raw_stats.end()) {
         std::string key_string = "stats.";
 
-        for (int i = 0; i < num_filters; i++) {
+        for (unsigned int i = 0; i < num_filters; i++) {
             int filter = filters[i];
 
             if (filter == 0) {

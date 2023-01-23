@@ -580,9 +580,9 @@ static RPCHelpMan getnetmsgstats()
 
                     if (filter == "msgtype") {
                         filters.push_back(0);
-                    } else if (filter == "network") {
-                        filters.push_back(1);
                     } else if (filter == "connectiontype") {
+                        filters.push_back(1);
+                    } else if (filter == "network") {
                         filters.push_back(2);
                     } // TODO an else clause that tells user the filter they listed was invalid
                 }
@@ -591,7 +591,7 @@ static RPCHelpMan getnetmsgstats()
             UniValue obj(UniValue::VOBJ);
 
             std::map<std::string, CConnman::MsgStatsValue> raw_sent_stats = connman.AggregateSentMsgStats(filters);
-            LogPrintf("\nstacie - got sent msg stats\n");
+            std::map<std::string, CConnman::MsgStatsValue> raw_recv_stats = connman.AggregateRecvMsgStats(filters);
 
             UniValue sent_stats(UniValue::VOBJ);
             for (const auto& i : raw_sent_stats) {
@@ -603,15 +603,18 @@ static RPCHelpMan getnetmsgstats()
                 }
             }
 
-            LogPrintf("\nstacie - created sent stats object\n");
+            UniValue recv_stats(UniValue::VOBJ);
+            for (const auto& i : raw_recv_stats) {
+                if (i.second.msg_count > 0 || i.second.byte_count > 0) {
+                    UniValue stats(UniValue::VOBJ);
+                    stats.pushKV("msg_count", i.second.msg_count);
+                    stats.pushKV("total_bytes", i.second.byte_count);
+                    recv_stats.pushKV(i.first, stats);
+                }
+            }
 
             obj.pushKV("sent", sent_stats);
-            LogPrintf("\nstacie - populated sent stats object\n");
-
-            std::map<std::string, CConnman::MsgStatsValue> recv_stats = connman.AggregateRecvMsgStats(filters);
-            // TODO: fill in the received stats!! then push!
-            obj.pushKV("received", sent_stats);
-
+            obj.pushKV("received", recv_stats);
             return obj;
         }
     };
