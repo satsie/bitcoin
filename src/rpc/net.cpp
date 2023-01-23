@@ -556,8 +556,8 @@ static RPCHelpMan getnetmsgstats()
             }
         },
         RPCExamples {
-            HelpExampleCli("getnetmsgstats", R"('["connectiontype","msgtype"]')") +
-            HelpExampleRpc("getnetmsgstats", R"(["connectiontype","msgtype"])")
+            HelpExampleCli("getnetmsgstats", R"('["conntype","msgtype"]')") +
+            HelpExampleRpc("getnetmsgstats", R"(["conntype","msgtype"])")
         },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
         {
@@ -582,7 +582,7 @@ static RPCHelpMan getnetmsgstats()
 
                     if (filter == "msgtype") {
                         filters.push_back(0);
-                    } else if (filter == "connectiontype") {
+                    } else if (filter == "conntype") {
                         filters.push_back(1);
                     } else if (filter == "network") {
                         filters.push_back(2);
