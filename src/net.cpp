@@ -1337,7 +1337,6 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                     pnode->CloseSocketDisconnect();
                 }
                 RecordBytesRecv(nBytes);
-
                 if (notify) {
                     size_t nSizeAdded = 0;
                     for (const auto& msg : pnode->vRecvMsg) {
@@ -2694,20 +2693,12 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>
 {
     for (auto const& msgtype_stats : msgtype_countbytes) {
         std::string msg_type = msgtype_stats.first;
-        auto i = m_msgtype_bytes_recv.find(msg_type);
-        if (i == m_msgtype_bytes_recv.end()) {
-            i = m_msgtype_bytes_recv.find(NET_MESSAGE_TYPE_OTHER);
-        }
-
-        assert(i != m_msgtype_bytes_recv.end());
         std::tuple<int, uint64_t> count_bytes = msgtype_stats.second;
 
         int msg_count = std::get<0>(count_bytes);
         uint64_t num_bytes = std::get<1>(count_bytes);
 
         if (num_bytes > 0) {
-            i->second += num_bytes;
-
             MsgStatsKey stats_key = {msg_type, conn_type, net_type};
 
             // LogPrint(BCLog::NET, "\nstacie - incremeting received message count by %d, num_bytes by %d for (%s, %s, %s)\n",
@@ -2842,16 +2833,7 @@ void CConnman::RecordBytesSent(uint64_t bytes)
 
 void CConnman::RecordMsgStatsSent(std::string msg_type, size_t bytes, ConnectionType conn_type, Network net_type)
 {
-    auto i = m_msgtype_bytes_sent.find(msg_type);
-    if (i == m_msgtype_bytes_sent.end()) {
-        i = m_msgtype_bytes_sent.find(NET_MESSAGE_TYPE_OTHER);
-    }
-
-    assert(i != m_msgtype_bytes_sent.end());
-
     if (bytes > 0) {
-        i->second += bytes;
-
         MsgStatsKey stats_key = {msg_type, conn_type, net_type};
         // LogPrint(BCLog::NET, "\nstacie - incremeting sent message count by 1, num_bytes by %d for (%s, %s, %s)\n",
         //          bytes, msg_type, ConnectionTypeAsString(conn_type), GetNetworkName(net_type));
@@ -2939,21 +2921,11 @@ uint64_t CConnman::GetTotalBytesRecv() const
     return nTotalBytesRecv;
 }
 
-mapMsgTypeSize CConnman::GetTotalBytesRecvByMsgType() const
-{
-    return m_msgtype_bytes_recv;
-}
-
 uint64_t CConnman::GetTotalBytesSent() const
 {
     AssertLockNotHeld(m_total_bytes_sent_mutex);
     LOCK(m_total_bytes_sent_mutex);
     return nTotalBytesSent;
-}
-
-mapMsgTypeSize CConnman::GetTotalBytesSentByMsgType() const
-{
-    return m_msgtype_bytes_sent;
 }
 
 ServiceFlags CConnman::GetLocalServices() const

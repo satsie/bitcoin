@@ -87,10 +87,8 @@ bool ConnmanTestMsg::ReceiveMsgFrom(CNode& node, CSerializedNetMsg& ser_msg) con
     node.m_serializer->prepareForTransport(ser_msg, ser_msg_header);
 
     bool complete;
-
     NodeReceiveMsgBytes(node, ser_msg_header, complete);
     NodeReceiveMsgBytes(node, ser_msg.data, complete);
-
     return complete;
 }
 

@@ -553,9 +553,6 @@ public:
      * @param[in]   msg_bytes   The raw data
      * @param[out]  complete    Set True if at least one message has been
      *                          deserialized and is ready to be processed
-     * @param[out]  msgtype_countbytes   The message types mapped to a pair
-     *                          that contains the total message count and
-     *                          total number of message bytes
      * @return  True if the peer should stay connected,
      *          False if the peer should be disconnected from.
      */
@@ -728,13 +725,6 @@ public:
             m_added_nodes = connOptions.m_added_nodes;
         }
         m_onion_binds = connOptions.onion_binds;
-
-        for (const std::string& msg : getAllNetMessageTypes()) {
-            m_msgtype_bytes_recv[msg] = 0;
-            m_msgtype_bytes_sent[msg] = 0;
-        }
-        m_msgtype_bytes_recv[NET_MESSAGE_TYPE_OTHER] = 0;
-        m_msgtype_bytes_sent[NET_MESSAGE_TYPE_OTHER] = 0;
     }
 
     CConnman(uint64_t seed0, uint64_t seed1, AddrMan& addrman, const NetGroupManager& netgroupman,
@@ -865,9 +855,6 @@ public:
 
     uint64_t GetTotalBytesRecv() const;
     uint64_t GetTotalBytesSent() const EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
-
-    mapMsgTypeSize GetTotalBytesRecvByMsgType() const;
-    mapMsgTypeSize GetTotalBytesSentByMsgType() const;
 
     struct MsgStatsValue {
         int msg_count;
@@ -1016,8 +1003,6 @@ private:
     mutable Mutex m_total_bytes_sent_mutex;
     std::atomic<uint64_t> nTotalBytesRecv{0};
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
-    mapMsgTypeSize m_msgtype_bytes_recv;
-    mapMsgTypeSize m_msgtype_bytes_sent;
 
     struct MsgStatsKey {
         // protocol.cpp has a list of allNetMessageTypes which use the NetMsgType namespace.
