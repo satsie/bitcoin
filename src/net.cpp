@@ -667,8 +667,7 @@ void CNode::CopyStats(CNodeStats& stats)
 }
 #undef X
 
-bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
-                            std::map<std::string, std::pair<int, uint64_t>>& msgtype_countbytes)
+bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete)
 {
     complete = false;
     const auto time = GetTime<std::chrono::microseconds>();
@@ -702,19 +701,6 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
             }
             assert(i != mapRecvBytesPerMsgType.end());
             i->second += msg.m_raw_message_size;
-
-            // Update the output parameter that holds received bytes per message type
-            auto j = msgtype_countbytes.find(msg.m_type);
-            if (j == msgtype_countbytes.end()) {
-                j = msgtype_countbytes.find(NET_MESSAGE_TYPE_OTHER);
-            }
-            assert(j != msgtype_countbytes.end());
-
-            std::pair<int, uint64_t> count_bytes = j->second;
-            ++count_bytes.first;
-            count_bytes.second += msg.m_raw_message_size;
-
-            j->second = count_bytes;
 
             // push the message to the process queue,
             vRecvMsg.push_back(std::move(msg));
@@ -1347,10 +1333,10 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                     msgtype_countbytes[msg] = std::make_pair(0, 0);
                 msgtype_countbytes[NET_MESSAGE_TYPE_OTHER] = std::make_pair(0, 0);
 
-                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, msgtype_countbytes)) {
+                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify)) {
                     pnode->CloseSocketDisconnect();
                 }
-                RecordMsgStatsRecv(msgtype_countbytes, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
+                RecordBytesRecv(nBytes);
 
                 if (notify) {
                     size_t nSizeAdded = 0;
@@ -1358,6 +1344,19 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                         // vRecvMsg contains only completed CNetMessage
                         // the single possible partially deserialized message are held by TransportDeserializer
                         nSizeAdded += msg.m_raw_message_size;
+
+                        // Update the data structure that holds received bytes per message type
+                        auto i = msgtype_countbytes.find(msg.m_type);
+                        if (i == msgtype_countbytes.end()) {
+                            i = msgtype_countbytes.find(NET_MESSAGE_TYPE_OTHER);
+                        }
+                        assert(i != msgtype_countbytes.end());
+
+                        std::pair<int, uint64_t> count_bytes = i->second;
+                        ++count_bytes.first;
+                        count_bytes.second += msg.m_raw_message_size;
+
+                        i->second = count_bytes;
                     }
                     {
                         LOCK(pnode->cs_vProcessMsg);
@@ -1366,6 +1365,7 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                         pnode->fPauseRecv = pnode->nProcessQueueSize > nReceiveFloodSize;
                     }
                     WakeMessageHandler();
+                    RecordMsgStatsRecv(msgtype_countbytes, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
                 }
             }
             else if (nBytes == 0)
@@ -2684,6 +2684,11 @@ bool CConnman::DisconnectNode(NodeId id)
     return false;
 }
 
+void CConnman::RecordBytesRecv(uint64_t bytes)
+{
+    nTotalBytesRecv += bytes;
+}
+
 void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes,
                                   ConnectionType conn_type, Network net_type)
 {
@@ -2701,7 +2706,6 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>
         uint64_t num_bytes = std::get<1>(count_bytes);
 
         if (num_bytes > 0) {
-            nTotalBytesRecv += num_bytes;
             i->second += num_bytes;
 
             MsgStatsKey stats_key = {msg_type, conn_type, net_type};

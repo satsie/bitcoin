@@ -559,8 +559,7 @@ public:
      * @return  True if the peer should stay connected,
      *          False if the peer should be disconnected from.
      */
-    bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
-                         std::map<std::string, std::pair<int, uint64_t>>& msgtype_bytes) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
+    bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
 
     void SetCommonVersion(int greatest_common_version)
     {
@@ -993,6 +992,7 @@ private:
     void DumpAddresses();
 
     // Network stats
+    void RecordBytesRecv(uint64_t bytes); // accurate even when messages are split
     void RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes,
                             ConnectionType conn_type, Network net_type);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
