@@ -427,6 +427,7 @@ public:
             case ConnectionType::MANUAL:
             case ConnectionType::ADDR_FETCH:
             case ConnectionType::FEELER:
+            case ConnectionType::NUM_CONN_TYPES:
                 return false;
         } // no default case, so the compiler can warn about missing cases
 
@@ -462,6 +463,7 @@ public:
             case ConnectionType::INBOUND:
             case ConnectionType::MANUAL:
             case ConnectionType::FEELER:
+            case ConnectionType::NUM_CONN_TYPES:
                 return false;
             case ConnectionType::OUTBOUND_FULL_RELAY:
             case ConnectionType::BLOCK_RELAY:
@@ -861,6 +863,18 @@ public:
         uint64_t byte_count;
     };
 
+    // TODO is this an appropriate place to declare an alias?
+    using Stats = std::array<std::array<std::array<MsgStatsValue, MessageType::NUM_MSG_TYPES>,
+        static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES)>, // surely there is a better way to do this in C++
+        // PR note (will remove): I really did not want to make a new enum but I think I need it in order to access
+        // elements in the multi dimensional array
+        // To get the number of message types I tried a few different ways in protocol.cpp
+        // and kept running into C++ problems
+        // The two options I tried:
+        //        const size_t NUM_MSG_TYPES = sizeof(allNetMessageTypes)/sizeof(allNetMessageTypes[0])
+        //        const size_t NUM_MSG_TYPES = getAllNetMessageTypes().size()
+        NET_MAX>;
+
     std::map<std::string, MsgStatsValue> AggregateSentMsgStats(std::vector<int> filters) const;
     std::map<std::string, MsgStatsValue> AggregateRecvMsgStats(std::vector<int> filters) const;
 
@@ -1028,10 +1042,10 @@ private:
         }
     };
 
-    std::map<MsgStatsKey, MsgStatsValue> m_netmsg_stats_recv;
-    std::map<MsgStatsKey, MsgStatsValue> m_netmsg_stats_sent;
+    Stats m_netmsg_stats_recv;
+    Stats m_netmsg_stats_sent;
 
-    std::map<std::string, MsgStatsValue> AggregateNetMsgStats(const std::map<MsgStatsKey, MsgStatsValue>& raw_stats, std::vector<int> filters) const;
+    std::map<std::string, MsgStatsValue> AggregateNetMsgStats(std::vector<int> filters, const Stats& raw_stats) const;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};

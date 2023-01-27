@@ -1088,6 +1088,9 @@ bool CConnman::AddConnection(const std::string& address, ConnectionType conn_typ
     // no limit for FEELER connections since they're short-lived
     case ConnectionType::FEELER:
         break;
+    // conn_type should never be set to NUM_CONN_TYPES
+    case ConnectionType::NUM_CONN_TYPES:
+        break; // TODO is break okay here? or assert(false)?
     } // no default case, so the compiler can warn about missing cases
 
     // Count existing connections
@@ -1753,6 +1756,7 @@ void CConnman::ThreadOpenConnections(const std::vector<std::string> connect)
                 switch (pnode->m_conn_type) {
                     case ConnectionType::INBOUND:
                     case ConnectionType::MANUAL:
+                    case ConnectionType::NUM_CONN_TYPES:
                         break;
                     case ConnectionType::OUTBOUND_FULL_RELAY:
                     case ConnectionType::BLOCK_RELAY:
@@ -2429,6 +2433,17 @@ bool CConnman::Start(CScheduler& scheduler, const Options& connOptions)
     // Dump network addresses
     scheduler.scheduleEvery([this] { DumpAddresses(); }, DUMP_PEERS_INTERVAL);
 
+    // Initialize message stats zero (is this the right place to do this?)
+    for (int network_index = 0; network_index < NET_MAX; network_index++) {
+        for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
+            for (int message_index = 0; message_index < MessageType::NUM_MSG_TYPES; message_index++) {
+                MsgStatsValue zero = {0, 0};
+                m_netmsg_stats_recv[network_index][connection_index][message_index] = zero;
+                m_netmsg_stats_sent[network_index][connection_index][message_index] = zero;
+            }
+        }
+    }
+
     return true;
 }
 
@@ -2696,29 +2711,18 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>
         std::tuple<int, uint64_t> count_bytes = msgtype_stats.second;
 
         int msg_count = std::get<0>(count_bytes);
-        uint64_t num_bytes = std::get<1>(count_bytes);
+        uint64_t byte_count = std::get<1>(count_bytes);
 
-        if (num_bytes > 0) {
-            MsgStatsKey stats_key = {msg_type, conn_type, net_type};
-
-            // LogPrint(BCLog::NET, "\nstacie - incremeting received message count by %d, num_bytes by %d for (%s, %s, %s)\n",
-            //          msg_count, num_bytes, msg_type, ConnectionTypeAsString(conn_type), GetNetworkName(net_type));
-            auto stats_iterator = m_netmsg_stats_recv.find(stats_key);
-
-            // If this stat does not exist, add it (could also initialize all stats to zero?)
-            if (stats_iterator == m_netmsg_stats_recv.end()) {
-                MsgStatsValue stats_value = {msg_count, num_bytes};
-                m_netmsg_stats_recv.insert(std::map<MsgStatsKey, MsgStatsValue>::value_type(stats_key, stats_value));
-            } else {
-                // otherwise, update the message count and number of bytes
-                stats_iterator->second.msg_count += msg_count;
-                stats_iterator->second.byte_count += num_bytes;
-            }
+        if (byte_count > 0) {
+            MessageType msg_type_enum = StringToMessageType(msg_type);
+            MsgStatsValue& current_value = m_netmsg_stats_recv[net_type][static_cast<int>(conn_type)][msg_type_enum];
+            current_value.msg_count += msg_count;
+            current_value.byte_count += byte_count;
         }
     }
 }
 
-std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(const std::map<MsgStatsKey, MsgStatsValue>& raw_stats, std::vector<int> filters) const
+std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(std::vector<int> filters, const Stats& raw_stats) const
 {
     // An object for the results
     // The depth of the return object depends on the number of filters
@@ -2727,43 +2731,44 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(co
 
     const size_t num_filters = filters.size();
 
-    // Iterate over the raw stats
-    // TODO I'm not sure if the default case of no filters works
-    std::map<MsgStatsKey, MsgStatsValue>::const_iterator raw_stats_itr = raw_stats.begin();
-    while (raw_stats_itr != raw_stats.end()) {
-        std::string key_string = "stats.";
+    // Iterate over the multi dimensional array that holds the raw stats
+    for (int network_index = 0; network_index < NET_MAX; network_index++) {
+        for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
+            for (int message_index = 0; message_index < MessageType::NUM_MSG_TYPES; message_index++) {
+                const MsgStatsValue& raw_stats_array_value = raw_stats_array[network_index][connection_index][message_index];
+                std::string key_string = "stats.";
 
-        for (unsigned int i = 0; i < num_filters; i++) {
-            int filter = filters[i];
+                for (unsigned int i = 0; i < num_filters; i++) {
+                    int filter = filters[i];
 
-            if (filter == 0) {
-                // What is the message type?
-                key_string += raw_stats_itr->first.msg_type;
-            } else if (filter == 1) {
-                // What is the connection type?
-                key_string += ConnectionTypeAsString(raw_stats_itr->first.conn_type);
-            } else {
-                // What is the network type?
-                key_string += GetNetworkName(raw_stats_itr->first.net_type);
+                    if (filter == 0) {
+                        // message type
+                        key_string += MessageTypeToString(static_cast<MessageType>(message_index));
+                    } else if (filter == 1) {
+                        // connection type
+                        key_string += ConnectionTypeAsString(static_cast<ConnectionType>(connection_index));
+                    } else {
+                        // network type
+                        key_string += GetNetworkName(static_cast<Network>(network_index));
+                    }
+
+                    key_string += "."; // keys are strings, need a delimiter
+                }
+                key_string.pop_back();
+
+                // Does the value for this exist in the result object?
+                auto in_result = aggregate_stats.find(key_string);
+
+                // if it does not, create it
+                if (in_result == aggregate_stats.end() && raw_stats_array_value.msg_count > 0) {
+                    MsgStatsValue stats = {raw_stats_array_value.msg_count, raw_stats_array_value.byte_count};
+                    aggregate_stats.insert({key_string, stats});
+                } else if (raw_stats_array_value.msg_count > 0) {
+                    in_result->second.msg_count += raw_stats_array_value.msg_count;
+                    in_result->second.byte_count += raw_stats_array_value.byte_count;
+                }
             }
-
-            key_string += "."; // keys are strings, need a delimiter
         }
-
-        key_string.pop_back();
-
-        // Does the value for this exist in the result object?
-        auto in_result = aggregate_stats.find(key_string);
-
-        // if it does not, create it
-        if (in_result == aggregate_stats.end()) {
-            MsgStatsValue stats = {raw_stats_itr->second.msg_count, raw_stats_itr->second.byte_count};
-            aggregate_stats.insert({key_string, stats});
-        } else {
-            in_result->second.msg_count += raw_stats_itr->second.msg_count;
-            in_result->second.byte_count += raw_stats_itr->second.byte_count;
-        }
-        ++raw_stats_itr;
     }
 
     return aggregate_stats;
@@ -2771,12 +2776,12 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(co
 
 std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateSentMsgStats(std::vector<int> filters) const
 {
-    return AggregateNetMsgStats(m_netmsg_stats_sent, filters);
+    return AggregateNetMsgStats(filters, m_netmsg_stats_sent);
 }
 
 std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateRecvMsgStats(std::vector<int> filters) const
 {
-    return AggregateNetMsgStats(m_netmsg_stats_recv, filters);
+    return AggregateNetMsgStats(filters, m_netmsg_stats_recv);
 }
 
 void CConnman::PrintNetMsgStats() const
@@ -2792,7 +2797,7 @@ void CConnman::PrintNetMsgStats() const
     std::map<std::string, MsgStatsValue> agg_sent_stats = AggregateSentMsgStats(filters);
     std::map<std::string, MsgStatsValue> agg_recv_stats = AggregateRecvMsgStats(filters);
 
-    LogPrintf("\n\nstacie - ===== SENT =====");
+    LogPrintf("\n\nstacie - ===== [MAP] SENT =====");
     std::map<std::string, MsgStatsValue>::const_iterator agg_sent_stats_print_iterator = agg_sent_stats.begin();
     while (agg_sent_stats_print_iterator != agg_sent_stats.end()) {
         LogPrintf("\nstacie - key: %s", agg_sent_stats_print_iterator->first);
@@ -2802,7 +2807,7 @@ void CConnman::PrintNetMsgStats() const
         ++agg_sent_stats_print_iterator;
     }
 
-    LogPrintf("\n\nstacie - ===== RECEIVED =====");
+    LogPrintf("\n\nstacie - ===== [MAP] RECEIVED =====");
     std::map<std::string, MsgStatsValue>::const_iterator agg_recv_stats_print_iterator = agg_recv_stats.begin();
     while (agg_recv_stats_print_iterator != agg_recv_stats.end()) {
         LogPrintf("\nstacie - key: %s", agg_recv_stats_print_iterator->first);
@@ -2810,7 +2815,7 @@ void CConnman::PrintNetMsgStats() const
         LogPrintf("\nstacie -     byte count: %d", agg_recv_stats_print_iterator->second.byte_count);
 
         ++agg_recv_stats_print_iterator;
-    }    
+    } 
 }
 
 void CConnman::RecordBytesSent(uint64_t bytes)
@@ -2831,23 +2836,13 @@ void CConnman::RecordBytesSent(uint64_t bytes)
     nMaxOutboundTotalBytesSentInCycle += bytes;
 }
 
-void CConnman::RecordMsgStatsSent(std::string msg_type, size_t bytes, ConnectionType conn_type, Network net_type)
+void CConnman::RecordMsgStatsSent(std::string msg_type, const size_t byte_count, ConnectionType conn_type, Network net_type)
 {
-    if (bytes > 0) {
-        MsgStatsKey stats_key = {msg_type, conn_type, net_type};
-        // LogPrint(BCLog::NET, "\nstacie - incremeting sent message count by 1, num_bytes by %d for (%s, %s, %s)\n",
-        //          bytes, msg_type, ConnectionTypeAsString(conn_type), GetNetworkName(net_type));
-        auto stats_iterator = m_netmsg_stats_sent.find(stats_key);
-
-        // If this stat does not exist, add it (could also initialize all stats to zero?)
-        if (stats_iterator == m_netmsg_stats_sent.end()) {
-            MsgStatsValue stats_value = {1, bytes};
-            m_netmsg_stats_sent.insert(std::map<MsgStatsKey, MsgStatsValue>::value_type(stats_key, stats_value));
-        } else {
-            // otherwise, update the message count and number of bytes
-            stats_iterator->second.msg_count += 1;
-            stats_iterator->second.byte_count += bytes;
-        }
+    if (byte_count > 0) {
+        MessageType msg_type_enum = StringToMessageType(msg_type);
+        MsgStatsValue& current_value = m_netmsg_stats_sent_array[net_type][static_cast<int>(conn_type)][msg_type_enum];
+        current_value.msg_count += 1;
+        current_value.byte_count += byte_count;
     }
 }
 

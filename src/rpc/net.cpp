@@ -564,7 +564,7 @@ static RPCHelpMan getnetmsgstats()
             NodeContext& node = EnsureAnyNodeContext(request.context);
             const CConnman& connman = EnsureConnman(node);
 
-            connman.PrintNetMsgStats();
+            // connman.PrintNetMsgStats();
 
             std::vector<int> filters;
 

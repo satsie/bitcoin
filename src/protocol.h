@@ -266,6 +266,51 @@ extern const char* WTXIDRELAY;
 extern const char* SENDTXRCNCL;
 }; // namespace NetMsgType
 
+// TODO should probably propose a solution that works with the existing namespace that has the string values,
+// and try to update other areas of the code to use the new enum
+enum MessageType {
+    VERSION = 0,
+    VERACK,
+    ADDR,
+    ADDRV2,
+    SENDADDRV2,
+    INV,
+    GETDATA,
+    MERKLEBLOCK,
+    GETBLOCKS,
+    GETHEADERS,
+    TX,
+    HEADERS,
+    BLOCK,
+    GETADDR,
+    MEMPOOL,
+    PING,
+    PONG,
+    NOTFOUND,
+    FILTERLOAD,
+    FILTERADD,
+    FILTERCLEAR,
+    SENDHEADERS,
+    FEEFILTER,
+    SENDCMPCT,
+    CMPCTBLOCK,
+    GETBLOCKTXN,
+    BLOCKTXN,
+    GETCFILTERS,
+    CFILTER,
+    GETCFHEADERS,
+    CFHEADERS,
+    GETCFCHECKPT,
+    CFCHECKPT,
+    WTXIDRELAY,
+    SENDTXRCNCL,
+    NUM_MSG_TYPES,
+};
+
+MessageType StringToMessageType(std::string msg_type);
+
+const char* MessageTypeToString(MessageType msg_type);
+
 /* Get a vector of all valid message types (see above) */
 const std::vector<std::string>& getAllNetMessageTypes();
 
