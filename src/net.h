@@ -864,16 +864,8 @@ public:
     };
 
     // TODO is this an appropriate place to declare an alias?
-    using Stats = std::array<std::array<std::array<MsgStatsValue, MessageType::NUM_MSG_TYPES>,
-        static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES)>, // surely there is a better way to do this in C++
-        // PR note (will remove): I really did not want to make a new enum but I think I need it in order to access
-        // elements in the multi dimensional array
-        // To get the number of message types I tried a few different ways in protocol.cpp
-        // and kept running into C++ problems
-        // The two options I tried:
-        //        const size_t NUM_MSG_TYPES = sizeof(allNetMessageTypes)/sizeof(allNetMessageTypes[0])
-        //        const size_t NUM_MSG_TYPES = getAllNetMessageTypes().size()
-        NET_MAX>;
+    using Stats = std::array<std::array<std::array<MsgStatsValue, NUM_NET_MESSAGE_TYPES>,
+        static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES)>, NET_MAX>;
 
     std::map<std::string, MsgStatsValue> AggregateSentMsgStats(std::vector<int> filters) const;
     std::map<std::string, MsgStatsValue> AggregateRecvMsgStats(std::vector<int> filters) const;

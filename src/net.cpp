@@ -2436,7 +2436,7 @@ bool CConnman::Start(CScheduler& scheduler, const Options& connOptions)
     // Initialize message stats zero (is this the right place to do this?)
     for (int network_index = 0; network_index < NET_MAX; network_index++) {
         for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
-            for (int message_index = 0; message_index < MessageType::NUM_MSG_TYPES; message_index++) {
+            for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES; message_index++) {
                 MsgStatsValue zero = {0, 0};
                 m_netmsg_stats_recv[network_index][connection_index][message_index] = zero;
                 m_netmsg_stats_sent[network_index][connection_index][message_index] = zero;
@@ -2714,8 +2714,8 @@ void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>
         uint64_t byte_count = std::get<1>(count_bytes);
 
         if (byte_count > 0) {
-            MessageType msg_type_enum = StringToMessageType(msg_type);
-            MsgStatsValue& current_value = m_netmsg_stats_recv[net_type][static_cast<int>(conn_type)][msg_type_enum];
+            int msg_type_index = getMessageTypeIndex(msg_type);
+            MsgStatsValue& current_value = m_netmsg_stats_recv[net_type][static_cast<int>(conn_type)][msg_type_index];
             current_value.msg_count += msg_count;
             current_value.byte_count += byte_count;
         }
@@ -2734,8 +2734,8 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(st
     // Iterate over the multi dimensional array that holds the raw stats
     for (int network_index = 0; network_index < NET_MAX; network_index++) {
         for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
-            for (int message_index = 0; message_index < MessageType::NUM_MSG_TYPES; message_index++) {
-                const MsgStatsValue& raw_stats_array_value = raw_stats_array[network_index][connection_index][message_index];
+            for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES; message_index++) {
+                const MsgStatsValue& raw_stats_value = raw_stats[network_index][connection_index][message_index];
                 std::string key_string = "stats.";
 
                 for (unsigned int i = 0; i < num_filters; i++) {
@@ -2743,7 +2743,7 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(st
 
                     if (filter == 0) {
                         // message type
-                        key_string += MessageTypeToString(static_cast<MessageType>(message_index));
+                        key_string += getAllNetMessageTypes()[message_index];
                     } else if (filter == 1) {
                         // connection type
                         key_string += ConnectionTypeAsString(static_cast<ConnectionType>(connection_index));
@@ -2760,12 +2760,12 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(st
                 auto in_result = aggregate_stats.find(key_string);
 
                 // if it does not, create it
-                if (in_result == aggregate_stats.end() && raw_stats_array_value.msg_count > 0) {
-                    MsgStatsValue stats = {raw_stats_array_value.msg_count, raw_stats_array_value.byte_count};
+                if (in_result == aggregate_stats.end() && raw_stats_value.msg_count > 0) {
+                    MsgStatsValue stats = {raw_stats_value.msg_count, raw_stats_value.byte_count};
                     aggregate_stats.insert({key_string, stats});
-                } else if (raw_stats_array_value.msg_count > 0) {
-                    in_result->second.msg_count += raw_stats_array_value.msg_count;
-                    in_result->second.byte_count += raw_stats_array_value.byte_count;
+                } else if (raw_stats_value.msg_count > 0) {
+                    in_result->second.msg_count += raw_stats_value.msg_count;
+                    in_result->second.byte_count += raw_stats_value.byte_count;
                 }
             }
         }
@@ -2839,8 +2839,8 @@ void CConnman::RecordBytesSent(uint64_t bytes)
 void CConnman::RecordMsgStatsSent(std::string msg_type, const size_t byte_count, ConnectionType conn_type, Network net_type)
 {
     if (byte_count > 0) {
-        MessageType msg_type_enum = StringToMessageType(msg_type);
-        MsgStatsValue& current_value = m_netmsg_stats_sent_array[net_type][static_cast<int>(conn_type)][msg_type_enum];
+        int msg_type_index = getMessageTypeIndex(msg_type);
+        MsgStatsValue& current_value = m_netmsg_stats_sent[net_type][static_cast<int>(conn_type)][msg_type_index];
         current_value.msg_count += 1;
         current_value.byte_count += byte_count;
     }

@@ -87,6 +87,9 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::WTXIDRELAY,
     NetMsgType::SENDTXRCNCL,
 };
+
+static_assert(NUM_NET_MESSAGE_TYPES == sizeof(allNetMessageTypes)/sizeof(allNetMessageTypes[0]), "Please update NUM_NET_MESSAGE_TYPES");
+
 const static std::vector<std::string> allNetMessageTypesVec(std::begin(allNetMessageTypes), std::end(allNetMessageTypes));
 
 CMessageHeader::CMessageHeader(const MessageStartChars& pchMessageStartIn, const char* pszCommand, unsigned int nMessageSizeIn)
@@ -178,166 +181,22 @@ std::string CInv::ToString() const
     }
 }
 
-const char* MessageTypeToString(MessageType msg_type) {
-    switch(msg_type)
-    {
-        case MessageType::VERSION:
-            return NetMsgType::VERSION;
-        case MessageType::VERACK:
-            return NetMsgType::VERACK;
-        case MessageType::ADDR:
-            return NetMsgType::ADDR;
-        case MessageType::ADDRV2:
-            return NetMsgType::ADDRV2;
-        case MessageType::SENDADDRV2:
-            return NetMsgType::SENDADDRV2;
-        case MessageType::INV:
-            return NetMsgType::INV;
-        case MessageType::GETDATA:
-            return NetMsgType::GETDATA;
-        case MessageType::MERKLEBLOCK:
-            return NetMsgType::MERKLEBLOCK;
-        case MessageType::GETBLOCKS:
-            return NetMsgType::GETBLOCKS;
-        case MessageType::GETHEADERS:
-            return NetMsgType::GETHEADERS;
-        case MessageType::TX:
-            return NetMsgType::TX;
-        case MessageType::HEADERS:
-            return NetMsgType::HEADERS;
-        case MessageType::BLOCK:
-            return NetMsgType::BLOCK;
-        case MessageType::GETADDR:
-            return NetMsgType::GETADDR;
-        case MessageType::MEMPOOL:
-            return NetMsgType::MEMPOOL;
-        case MessageType::PING:
-            return NetMsgType::PING;
-        case MessageType::PONG:
-            return NetMsgType::PONG;
-        case MessageType::NOTFOUND:
-            return NetMsgType::NOTFOUND;
-        case MessageType::FILTERLOAD:
-            return NetMsgType::FILTERLOAD;
-        case MessageType::FILTERADD:
-            return NetMsgType::FILTERADD;
-        case MessageType::FILTERCLEAR:
-            return NetMsgType::FILTERCLEAR;
-        case MessageType::SENDHEADERS:
-            return NetMsgType::SENDHEADERS;
-        case MessageType::FEEFILTER:
-            return NetMsgType::FEEFILTER;
-        case MessageType::SENDCMPCT:
-            return NetMsgType::SENDCMPCT;
-        case MessageType::CMPCTBLOCK:
-            return NetMsgType::CMPCTBLOCK;
-        case MessageType::GETBLOCKTXN:
-            return NetMsgType::GETBLOCKTXN;
-        case MessageType::BLOCKTXN:
-            return NetMsgType::BLOCKTXN;
-        case MessageType::GETCFILTERS:
-            return NetMsgType::GETCFILTERS;
-        case MessageType::CFILTER:
-            return NetMsgType::CFILTER;
-        case MessageType::GETCFHEADERS:
-            return NetMsgType::GETCFHEADERS;
-        case MessageType::CFHEADERS:
-            return NetMsgType::CFHEADERS;
-        case MessageType::GETCFCHECKPT:
-            return NetMsgType::GETCFCHECKPT;
-        case MessageType::CFCHECKPT:
-            return NetMsgType::CFCHECKPT;
-        case MessageType::WTXIDRELAY:
-            return NetMsgType::WTXIDRELAY;
-        case MessageType::SENDTXRCNCL:
-            return NetMsgType::SENDTXRCNCL;
-        case MessageType::NUM_MSG_TYPES: assert(false);
-    } // no default case, so the compiler can warn about missing cases
-
-    assert(false);
-}
-
-MessageType StringToMessageType(std::string msg_type)
-{
-    if (msg_type == NetMsgType::VERSION) {
-        return MessageType::VERSION;
-    } else if (msg_type == NetMsgType::VERACK) {
-        return MessageType::VERACK;
-    } else if (msg_type == NetMsgType::ADDR) {
-        return MessageType::ADDR;
-    } else if (msg_type == NetMsgType::ADDRV2) {
-        return MessageType::ADDRV2;
-    } else if (msg_type == NetMsgType::SENDADDRV2) {
-        return MessageType::SENDADDRV2;
-    } else if (msg_type == NetMsgType::INV) {
-        return MessageType::INV;
-    } else if (msg_type == NetMsgType::GETDATA) {
-        return MessageType::GETDATA;
-    } else if (msg_type == NetMsgType::MERKLEBLOCK) {
-        return MessageType::MERKLEBLOCK;
-    } else if (msg_type == NetMsgType::GETBLOCKS) {
-        return MessageType::GETBLOCKS;
-    } else if (msg_type == NetMsgType::GETHEADERS) {
-        return MessageType::GETHEADERS;
-    } else if (msg_type == NetMsgType::TX) {
-        return MessageType::TX;
-    } else if (msg_type == NetMsgType::HEADERS) {
-        return MessageType::HEADERS;
-    } else if (msg_type == NetMsgType::BLOCK) {
-        return MessageType::BLOCK;
-    } else if (msg_type == NetMsgType::GETADDR) {
-        return MessageType::GETADDR;
-    } else if (msg_type == NetMsgType::MEMPOOL) {
-        return MessageType::MEMPOOL;
-    } else if (msg_type == NetMsgType::PING) {
-        return MessageType::PING;
-    } else if (msg_type == NetMsgType::PONG) {
-        return MessageType::PONG;
-    } else if (msg_type == NetMsgType::NOTFOUND) {
-        return MessageType::NOTFOUND;
-    } else if (msg_type == NetMsgType::FILTERLOAD) {
-        return MessageType::FILTERLOAD;
-    } else if (msg_type == NetMsgType::FILTERADD) {
-        return MessageType::FILTERADD;
-    } else if (msg_type == NetMsgType::FILTERCLEAR) {
-        return MessageType::FILTERCLEAR;
-    } else if (msg_type == NetMsgType::SENDHEADERS) {
-        return MessageType::SENDHEADERS;
-    } else if (msg_type == NetMsgType::FEEFILTER) {
-        return MessageType::FEEFILTER;
-    } else if (msg_type == NetMsgType::SENDCMPCT) {
-        return MessageType::SENDCMPCT;
-    } else if (msg_type == NetMsgType::CMPCTBLOCK) {
-        return MessageType::CMPCTBLOCK;
-    } else if (msg_type == NetMsgType::GETBLOCKTXN) {
-        return MessageType::GETBLOCKTXN;
-    } else if (msg_type == NetMsgType::BLOCKTXN) {
-        return MessageType::BLOCKTXN;
-    } else if (msg_type == NetMsgType::GETCFILTERS) {
-        return MessageType::GETCFILTERS;
-    } else if (msg_type == NetMsgType::CFILTER) {
-        return MessageType::CFILTER;
-    } else if (msg_type == NetMsgType::GETCFHEADERS) {
-        return MessageType::GETCFHEADERS;
-    } else if (msg_type == NetMsgType::CFHEADERS) {
-        return MessageType::CFHEADERS;
-    } else if (msg_type == NetMsgType::GETCFCHECKPT) {
-        return MessageType::CFCHECKPT;
-    } else if (msg_type == NetMsgType::CFCHECKPT) {
-        return MessageType::CFCHECKPT;
-    } else if (msg_type == NetMsgType::WTXIDRELAY) {
-        return MessageType::WTXIDRELAY;
-    } else if (msg_type == NetMsgType::SENDTXRCNCL) {
-        return MessageType::SENDTXRCNCL;
-    } // no default case, so the compiler can warn about missing cases
-
-    assert(false);
-}
-
-
 const std::vector<std::string> &getAllNetMessageTypes()
 {
     return allNetMessageTypesVec;
+}
+
+// TODO how is this method lookin? Any ways to improve it?
+int getMessageTypeIndex(std::string msg_type) {
+    const std::vector<std::string>& message_types = getAllNetMessageTypes();
+    auto msg_type_itr = std::find(message_types.begin(), message_types.end(), msg_type);
+
+    if (msg_type_itr != message_types.end()){
+        int index = msg_type_itr - message_types.begin();
+        return index;
+    } else {
+        assert(false);
+    }
 }
 
 /**
