@@ -1395,7 +1395,16 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
         if (sendSet) {
             // Send data
             size_t bytes_sent = WITH_LOCK(pnode->cs_vSend, return SocketSendData(*pnode));
-            if (bytes_sent) RecordBytesSent(bytes_sent);
+            if (bytes_sent) {
+                RecordBytesSent(bytes_sent);
+                // RecordMsgStatsSent(msg.m_type, bytes_sent, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
+
+                // TODO how to get the message type here? This code will be hit if CConnman::PushMessage has messages on the queue
+                // that get sent now by SocketSendData.
+                // One option is to just record as sent once CConnman::PushMessage() puts them on the CNode.vSendMsg queue.
+                // Somewhere around this line in CConnman::PushMessage():
+                //        pnode->mapSendBytesPerMsgType[msg.m_type] += nTotalSize;
+            }
         }
 
         if (InactivityCheck(*pnode)) pnode->fDisconnect = true;
@@ -2432,17 +2441,6 @@ bool CConnman::Start(CScheduler& scheduler, const Options& connOptions)
 
     // Dump network addresses
     scheduler.scheduleEvery([this] { DumpAddresses(); }, DUMP_PEERS_INTERVAL);
-
-    // Initialize message stats zero (is this the right place to do this?)
-    for (int network_index = 0; network_index < NET_MAX; network_index++) {
-        for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
-            for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES; message_index++) {
-                MsgStatsValue zero = {0, 0};
-                m_netmsg_stats_recv[network_index][connection_index][message_index] = zero;
-                m_netmsg_stats_sent[network_index][connection_index][message_index] = zero;
-            }
-        }
-    }
 
     return true;
 }

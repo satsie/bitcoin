@@ -195,6 +195,7 @@ int getMessageTypeIndex(std::string msg_type) {
         int index = msg_type_itr - message_types.begin();
         return index;
     } else {
+        LogPrintf("\n\nstacie - ===== getMessageTypeIndex() failure on message type %s =====", msg_type);
         assert(false);
     }
 }

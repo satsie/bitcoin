@@ -727,6 +727,18 @@ public:
             m_added_nodes = connOptions.m_added_nodes;
         }
         m_onion_binds = connOptions.onion_binds;
+
+        // Initialize message stats zero
+        for (int network_index = 0; network_index < NET_MAX; network_index++) {
+            for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
+                for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES + 1; message_index++) {
+                    MsgStatsValue zero = {0, 0};
+                    m_netmsg_stats_recv[network_index][connection_index][message_index] = zero;
+                    m_netmsg_stats_sent[network_index][connection_index][message_index] = zero;
+                }
+            }
+        }
+
     }
 
     CConnman(uint64_t seed0, uint64_t seed1, AddrMan& addrman, const NetGroupManager& netgroupman,
