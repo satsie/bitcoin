@@ -1330,10 +1330,9 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                 if (notify) {
                     size_t nSizeAdded = 0;
                     for (const auto& msg : pnode->vRecvMsg) {
-                        // vRecvMsg contains only completed CNetMessage
+                        // vRecvMsg contains only completed CNetMessage, meaning stats are only updated for fully received messages
                         // the single possible partially deserialized message are held by TransportDeserializer
                         nSizeAdded += msg.m_raw_message_size;
-
                         m_net_stats.RecordRecv(pnode->ConnectedThroughNetwork(), pnode->m_conn_type, msg.m_type, /*msg_count=*/1, msg.m_raw_message_size);
                     }
                     {
