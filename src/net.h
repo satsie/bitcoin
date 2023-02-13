@@ -40,7 +40,6 @@
 #include <optional>
 #include <queue>
 #include <thread>
-#include <tuple>
 #include <unordered_set>
 #include <vector>
 
@@ -184,7 +183,6 @@ struct LocalServiceInfo {
 extern GlobalMutex g_maplocalhost_mutex;
 extern std::map<CNetAddr, LocalServiceInfo> mapLocalHost GUARDED_BY(g_maplocalhost_mutex);
 
-extern const std::string NET_MESSAGE_TYPE_OTHER;
 using mapMsgTypeSize = std::map</* message type */ std::string, /* total bytes */ uint64_t>;
 
 class CNodeStats
@@ -727,18 +725,7 @@ public:
             m_added_nodes = connOptions.m_added_nodes;
         }
         m_onion_binds = connOptions.onion_binds;
-
-        // Initialize message stats zero
-        for (int network_index = 0; network_index < NET_MAX; network_index++) {
-            for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
-                for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES + 1; message_index++) {
-                    MsgStatsValue zero = {0, 0};
-                    m_netmsg_stats_recv[network_index][connection_index][message_index] = zero;
-                    m_netmsg_stats_sent[network_index][connection_index][message_index] = zero;
-                }
-            }
-        }
-
+        m_net_stats.Init();
     }
 
     CConnman(uint64_t seed0, uint64_t seed1, AddrMan& addrman, const NetGroupManager& netgroupman,
@@ -874,8 +861,6 @@ public:
         int msg_count;
         uint64_t byte_count;
     };
-
-    // TODO is this an appropriate place to declare an alias?
     using Stats = std::array<std::array<std::array<MsgStatsValue, NUM_NET_MESSAGE_TYPES>,
         static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES)>, NET_MAX>;
 
@@ -893,6 +878,56 @@ public:
     bool ShouldRunInactivityChecks(const CNode& node, std::chrono::seconds now) const;
 
     void PrintNetMsgStats() const; // Will remove this at the end
+
+    class NetStats
+    {
+        public:
+
+            void Init()
+            {
+                for (int network_index = 0; network_index < NET_MAX; network_index++) {
+                    for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
+                        for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES; message_index++) {
+                            auto& recv_stat = m_recv.at(network_index).at(connection_index).at(message_index);
+                            recv_stat.msg_count = 0;
+                            recv_stat.byte_count = 0;
+
+                            auto& sent_stat = m_sent.at(network_index).at(connection_index).at(message_index);
+                            sent_stat.msg_count = 0;
+                            sent_stat.byte_count = 0;
+                        }
+                    }
+                }
+            }
+
+            Stats GetRecv() const
+            {
+                return m_recv;
+            }
+
+            Stats GetSent() const
+            {
+                return m_sent;
+            }
+
+            void RecordRecv(Network net, ConnectionType conn_type, const std::string& msg_type, size_t msg_count, size_t byte_count)
+            {
+                auto& stat = m_recv.at(net).at(static_cast<int>(conn_type)).at(getMessageTypeIndex(msg_type));
+                stat.msg_count += msg_count;
+                stat.byte_count += byte_count;
+            }
+
+            void RecordSent(Network net, ConnectionType conn_type, const std::string& msg_type, size_t msg_count, size_t byte_count)
+            {
+                auto& stat = m_sent.at(net).at(static_cast<int>(conn_type)).at(getMessageTypeIndex(msg_type));
+                stat.msg_count += msg_count;
+                stat.byte_count += byte_count;
+            }
+
+        private:
+            Stats m_recv;
+            Stats m_sent;
+    };
 
 private:
     struct ListenSocket {
@@ -998,10 +1033,7 @@ private:
 
     // Network stats
     void RecordBytesRecv(uint64_t bytes); // accurate even when messages are split
-    void RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes,
-                            ConnectionType conn_type, Network net_type);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
-    void RecordMsgStatsSent(std::string msg_type, size_t bytes, ConnectionType conn_type, Network net_type);
 
     /**
      Return reachable networks for which we have no addresses in addrman and therefore
@@ -1022,33 +1054,7 @@ private:
     std::atomic<uint64_t> nTotalBytesRecv{0};
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
 
-    struct MsgStatsKey {
-        // protocol.cpp has a list of allNetMessageTypes which use the NetMsgType namespace.
-        // Can I treat NetMsgType like an enum?
-        std::string msg_type;
-        ConnectionType conn_type;
-        Network net_type;
-
-        bool operator<(const MsgStatsKey& rhs) const
-        {
-            if (msg_type < rhs.msg_type) {
-                return true;
-            } else if (msg_type == rhs.msg_type) {
-                if (conn_type < rhs.conn_type) {
-                    return true;
-                } else if (conn_type == rhs.conn_type) {
-                    if (net_type < rhs.net_type) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-    };
-
-    Stats m_netmsg_stats_recv;
-    Stats m_netmsg_stats_sent;
-
+    NetStats m_net_stats;
     std::map<std::string, MsgStatsValue> AggregateNetMsgStats(std::vector<int> filters, const Stats& raw_stats) const;
 
     // outbound limit & stats

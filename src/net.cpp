@@ -54,7 +54,6 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
-#include <tuple>
 #include <unordered_map>
 
 #include <math.h>
@@ -104,8 +103,6 @@ enum BindFlags {
 // The set of sockets cannot be modified while waiting
 // The sleep time needs to be small to avoid new sockets stalling
 static const uint64_t SELECT_TIMEOUT_MILLISECONDS = 50;
-
-const std::string NET_MESSAGE_TYPE_OTHER = "*other*";
 
 static const uint64_t RANDOMIZER_ID_NETGROUP = 0x6c0edd8036ef4036ULL; // SHA256("netgroup")[0:8]
 static const uint64_t RANDOMIZER_ID_LOCALHOSTNONCE = 0xd93e69e2bbfa5735ULL; // SHA256("localhostnonce")[0:8]
@@ -693,7 +690,7 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete)
                 continue;
             }
 
-            // For this peer, store received bytes per message type.
+            // Store received bytes per message type.
             // To prevent a memory DOS, only allow known message types.
             auto i = mapRecvBytesPerMsgType.find(msg.m_type);
             if (i == mapRecvBytesPerMsgType.end()) {
@@ -1326,16 +1323,6 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
             if (nBytes > 0)
             {
                 bool notify = false;
-
-                // a map to store each message type mapped to the total message count,
-                // as well as the total number of message bytes
-                std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes;
-
-                // initialize all message type values to zero
-                for (const std::string& msg : getAllNetMessageTypes())
-                    msgtype_countbytes[msg] = std::make_pair(0, 0);
-                msgtype_countbytes[NET_MESSAGE_TYPE_OTHER] = std::make_pair(0, 0);
-
                 if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify)) {
                     pnode->CloseSocketDisconnect();
                 }
@@ -1347,18 +1334,7 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                         // the single possible partially deserialized message are held by TransportDeserializer
                         nSizeAdded += msg.m_raw_message_size;
 
-                        // Update the data structure that holds received bytes per message type
-                        auto i = msgtype_countbytes.find(msg.m_type);
-                        if (i == msgtype_countbytes.end()) {
-                            i = msgtype_countbytes.find(NET_MESSAGE_TYPE_OTHER);
-                        }
-                        assert(i != msgtype_countbytes.end());
-
-                        std::pair<int, uint64_t> count_bytes = i->second;
-                        ++count_bytes.first;
-                        count_bytes.second += msg.m_raw_message_size;
-
-                        i->second = count_bytes;
+                        m_net_stats.RecordRecv(pnode->ConnectedThroughNetwork(), pnode->m_conn_type, msg.m_type, /*msg_count=*/1, msg.m_raw_message_size);
                     }
                     {
                         LOCK(pnode->cs_vProcessMsg);
@@ -1367,7 +1343,6 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                         pnode->fPauseRecv = pnode->nProcessQueueSize > nReceiveFloodSize;
                     }
                     WakeMessageHandler();
-                    RecordMsgStatsRecv(msgtype_countbytes, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
                 }
             }
             else if (nBytes == 0)
@@ -2701,25 +2676,6 @@ void CConnman::RecordBytesRecv(uint64_t bytes)
     nTotalBytesRecv += bytes;
 }
 
-void CConnman::RecordMsgStatsRecv(std::map<std::string, std::pair<int, uint64_t>> msgtype_countbytes,
-                                  ConnectionType conn_type, Network net_type)
-{
-    for (auto const& msgtype_stats : msgtype_countbytes) {
-        std::string msg_type = msgtype_stats.first;
-        std::tuple<int, uint64_t> count_bytes = msgtype_stats.second;
-
-        int msg_count = std::get<0>(count_bytes);
-        uint64_t byte_count = std::get<1>(count_bytes);
-
-        if (byte_count > 0) {
-            int msg_type_index = getMessageTypeIndex(msg_type);
-            MsgStatsValue& current_value = m_netmsg_stats_recv[net_type][static_cast<int>(conn_type)][msg_type_index];
-            current_value.msg_count += msg_count;
-            current_value.byte_count += byte_count;
-        }
-    }
-}
-
 std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(std::vector<int> filters, const Stats& raw_stats) const
 {
     // An object for the results
@@ -2774,12 +2730,12 @@ std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(st
 
 std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateSentMsgStats(std::vector<int> filters) const
 {
-    return AggregateNetMsgStats(filters, m_netmsg_stats_sent);
+    return AggregateNetMsgStats(filters, m_net_stats.GetSent());
 }
 
 std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateRecvMsgStats(std::vector<int> filters) const
 {
-    return AggregateNetMsgStats(filters, m_netmsg_stats_recv);
+    return AggregateNetMsgStats(filters, m_net_stats.GetRecv());
 }
 
 void CConnman::PrintNetMsgStats() const
@@ -2832,16 +2788,6 @@ void CConnman::RecordBytesSent(uint64_t bytes)
     }
 
     nMaxOutboundTotalBytesSentInCycle += bytes;
-}
-
-void CConnman::RecordMsgStatsSent(std::string msg_type, const size_t byte_count, ConnectionType conn_type, Network net_type)
-{
-    if (byte_count > 0) {
-        int msg_type_index = getMessageTypeIndex(msg_type);
-        MsgStatsValue& current_value = m_netmsg_stats_sent[net_type][static_cast<int>(conn_type)][msg_type_index];
-        current_value.msg_count += 1;
-        current_value.byte_count += byte_count;
-    }
 }
 
 uint64_t CConnman::GetMaxOutboundTarget() const
@@ -3013,7 +2959,7 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
     }
     if (nBytesSent) {
         RecordBytesSent(nBytesSent);
-        RecordMsgStatsSent(msg.m_type, nBytesSent, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
+        m_net_stats.RecordSent(pnode->ConnectedThroughNetwork(), pnode->m_conn_type, msg.m_type, /*msg_count=*/1, nBytesSent);
     }
 }
 

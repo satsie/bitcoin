@@ -47,6 +47,9 @@ const char *WTXIDRELAY="wtxidrelay";
 const char *SENDTXRCNCL="sendtxrcncl";
 } // namespace NetMsgType
 
+// TODO: moved this from net.cpp. Should it be in the NetMsgType namespace? If so, what about allNetMessageTypes?
+const std::string NET_MESSAGE_TYPE_OTHER = "*other*";
+
 /** All known message types. Keep this in the same order as the list of
  * messages above and in protocol.h.
  */
@@ -88,7 +91,8 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::SENDTXRCNCL,
 };
 
-static_assert(NUM_NET_MESSAGE_TYPES == sizeof(allNetMessageTypes)/sizeof(allNetMessageTypes[0]), "Please update NUM_NET_MESSAGE_TYPES");
+// TODO note in PR. The +1 is to account for the other netmessage type. Does it belong in allNetMessageTypes?
+static_assert(NUM_NET_MESSAGE_TYPES == sizeof(allNetMessageTypes)/sizeof(allNetMessageTypes[0]) + 1, "Please update NUM_NET_MESSAGE_TYPES");
 
 const static std::vector<std::string> allNetMessageTypesVec(std::begin(allNetMessageTypes), std::end(allNetMessageTypes));
 

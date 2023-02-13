@@ -709,7 +709,7 @@ QString ConnectionTypeToQString(ConnectionType conn_type, bool prepend_direction
     //: Short-lived peer connection type that solicits known addresses from a peer.
     case ConnectionType::ADDR_FETCH: return prefix + QObject::tr("Address Fetch");
     // conn_type should never be set to NUM_CONN_TYPES
-    // case ConnectionType::NUM_CONN_TYPES: return assert(false);
+    case ConnectionType::NUM_CONN_TYPES: assert(false);
     } // no default case, so the compiler can warn about missing cases
     assert(false);
 }

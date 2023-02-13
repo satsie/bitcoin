@@ -266,7 +266,9 @@ extern const char* WTXIDRELAY;
 extern const char* SENDTXRCNCL;
 }; // namespace NetMsgType
 
-constexpr size_t NUM_NET_MESSAGE_TYPES = 35;
+extern const std::string NET_MESSAGE_TYPE_OTHER;
+
+constexpr size_t NUM_NET_MESSAGE_TYPES = 36;
 
 /* Get a vector of all valid message types (see above) */
 const std::vector<std::string>& getAllNetMessageTypes();
