@@ -1370,16 +1370,7 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
         if (sendSet) {
             // Send data
             size_t bytes_sent = WITH_LOCK(pnode->cs_vSend, return SocketSendData(*pnode));
-            if (bytes_sent) {
-                RecordBytesSent(bytes_sent);
-                // RecordMsgStatsSent(msg.m_type, bytes_sent, pnode->m_conn_type, pnode->ConnectedThroughNetwork());
-
-                // TODO how to get the message type here? This code will be hit if CConnman::PushMessage has messages on the queue
-                // that get sent now by SocketSendData.
-                // One option is to just record as sent once CConnman::PushMessage() puts them on the CNode.vSendMsg queue.
-                // Somewhere around this line in CConnman::PushMessage():
-                //        pnode->mapSendBytesPerMsgType[msg.m_type] += nTotalSize;
-            }
+            if (bytes_sent) RecordBytesSent(bytes_sent);
         }
 
         if (InactivityCheck(*pnode)) pnode->fDisconnect = true;
@@ -2950,6 +2941,9 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
         pnode->mapSendBytesPerMsgType[msg.m_type] += nTotalSize;
         pnode->nSendSize += nTotalSize;
 
+        // also update network message stats
+        m_net_stats.RecordSent(pnode->ConnectedThroughNetwork(), pnode->m_conn_type, msg.m_type, /*msg_count=*/1, nTotalSize);
+
         if (pnode->nSendSize > nSendBufferMaxSize) pnode->fPauseSend = true;
         pnode->vSendMsg.push_back(std::move(serializedHeader));
         if (nMessageSize) pnode->vSendMsg.push_back(std::move(msg.data));
@@ -2957,10 +2951,7 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
         // If write queue empty, attempt "optimistic write"
         if (optimisticSend) nBytesSent = SocketSendData(*pnode);
     }
-    if (nBytesSent) {
-        RecordBytesSent(nBytesSent);
-        m_net_stats.RecordSent(pnode->ConnectedThroughNetwork(), pnode->m_conn_type, msg.m_type, /*msg_count=*/1, nBytesSent);
-    }
+    if (nBytesSent) RecordBytesSent(nBytesSent);
 }
 
 bool CConnman::ForNode(NodeId id, std::function<bool(CNode* pnode)> func)
