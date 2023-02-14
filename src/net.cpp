@@ -2666,102 +2666,6 @@ void CConnman::RecordBytesRecv(uint64_t bytes)
     nTotalBytesRecv += bytes;
 }
 
-std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateNetMsgStats(std::vector<int> filters, const Stats& raw_stats) const
-{
-    // An object for the results
-    // The depth of the return object depends on the number of filters
-    // ideally this would be JSON but that appears to be hard to do in C++
-    std::map<std::string, MsgStatsValue> aggregate_stats = {};
-
-    const size_t num_filters = filters.size();
-
-    // Iterate over the multi dimensional array that holds the raw stats
-    for (int network_index = 0; network_index < NET_MAX; network_index++) {
-        for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
-            for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES; message_index++) {
-                const MsgStatsValue& raw_stats_value = raw_stats[network_index][connection_index][message_index];
-                std::string key_string = "stats.";
-
-                for (unsigned int i = 0; i < num_filters; i++) {
-                    int filter = filters[i];
-
-                    if (filter == 0) {
-                        // message type
-                        key_string += getAllNetMessageTypes()[message_index];
-                    } else if (filter == 1) {
-                        // connection type
-                        key_string += ConnectionTypeAsString(static_cast<ConnectionType>(connection_index));
-                    } else {
-                        // network type
-                        key_string += GetNetworkName(static_cast<Network>(network_index));
-                    }
-
-                    key_string += "."; // keys are strings, need a delimiter
-                }
-                key_string.pop_back();
-
-                // Does the value for this exist in the result object?
-                auto in_result = aggregate_stats.find(key_string);
-
-                // if it does not, create it
-                if (in_result == aggregate_stats.end() && raw_stats_value.msg_count > 0) {
-                    MsgStatsValue stats = {raw_stats_value.msg_count, raw_stats_value.byte_count};
-                    aggregate_stats.insert({key_string, stats});
-                } else if (raw_stats_value.msg_count > 0) {
-                    in_result->second.msg_count += raw_stats_value.msg_count;
-                    in_result->second.byte_count += raw_stats_value.byte_count;
-                }
-            }
-        }
-    }
-
-    return aggregate_stats;
-}
-
-std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateSentMsgStats(std::vector<int> filters) const
-{
-    return AggregateNetMsgStats(filters, m_net_stats.GetSent());
-}
-
-std::map<std::string, CConnman::MsgStatsValue> CConnman::AggregateRecvMsgStats(std::vector<int> filters) const
-{
-    return AggregateNetMsgStats(filters, m_net_stats.GetRecv());
-}
-
-void CConnman::PrintNetMsgStats() const
-{
-    // Aggregate the messsages by different filters
-    // 0 = message type
-    // 1 = connection type
-    // 2 = network type
-    std::vector<int> filters{0, 2, 1};
-
-    // An object for the results
-    // The depth of the return object depends on the number of filters
-    std::map<std::string, MsgStatsValue> agg_sent_stats = AggregateSentMsgStats(filters);
-    std::map<std::string, MsgStatsValue> agg_recv_stats = AggregateRecvMsgStats(filters);
-
-    LogPrintf("\n\nstacie - ===== [MAP] SENT =====");
-    std::map<std::string, MsgStatsValue>::const_iterator agg_sent_stats_print_iterator = agg_sent_stats.begin();
-    while (agg_sent_stats_print_iterator != agg_sent_stats.end()) {
-        LogPrintf("\nstacie - key: %s", agg_sent_stats_print_iterator->first);
-        LogPrintf("\nstacie -     msg count: %d", agg_sent_stats_print_iterator->second.msg_count);
-        LogPrintf("\nstacie -     byte count: %d", agg_sent_stats_print_iterator->second.byte_count);
-
-        ++agg_sent_stats_print_iterator;
-    }
-
-    LogPrintf("\n\nstacie - ===== [MAP] RECEIVED =====");
-    std::map<std::string, MsgStatsValue>::const_iterator agg_recv_stats_print_iterator = agg_recv_stats.begin();
-    while (agg_recv_stats_print_iterator != agg_recv_stats.end()) {
-        LogPrintf("\nstacie - key: %s", agg_recv_stats_print_iterator->first);
-        LogPrintf("\nstacie -     msg count: %d", agg_recv_stats_print_iterator->second.msg_count);
-        LogPrintf("\nstacie -     byte count: %d", agg_recv_stats_print_iterator->second.byte_count);
-
-        ++agg_recv_stats_print_iterator;
-    } 
-}
-
 void CConnman::RecordBytesSent(uint64_t bytes)
 {
     AssertLockNotHeld(m_total_bytes_sent_mutex);
@@ -2779,6 +2683,12 @@ void CConnman::RecordBytesSent(uint64_t bytes)
 
     nMaxOutboundTotalBytesSentInCycle += bytes;
 }
+
+CConnman::NetStats CConnman::GetNetStats() const
+{
+    return m_net_stats;
+}
+
 
 uint64_t CConnman::GetMaxOutboundTarget() const
 {

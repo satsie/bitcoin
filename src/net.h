@@ -864,9 +864,6 @@ public:
     using Stats = std::array<std::array<std::array<MsgStatsValue, NUM_NET_MESSAGE_TYPES>,
         static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES)>, NET_MAX>;
 
-    std::map<std::string, MsgStatsValue> AggregateSentMsgStats(std::vector<int> filters) const;
-    std::map<std::string, MsgStatsValue> AggregateRecvMsgStats(std::vector<int> filters) const;
-
     /** Get a unique deterministic randomizer. */
     CSipHasher GetDeterministicRandomizer(uint64_t id) const;
 
@@ -876,8 +873,6 @@ public:
 
     /** Return true if we should disconnect the peer for failing an inactivity check. */
     bool ShouldRunInactivityChecks(const CNode& node, std::chrono::seconds now) const;
-
-    void PrintNetMsgStats() const; // Will remove this at the end
 
     class NetStats
     {
@@ -928,6 +923,8 @@ public:
             Stats m_recv;
             Stats m_sent;
     };
+
+    CConnman::NetStats GetNetStats() const;
 
 private:
     struct ListenSocket {
@@ -1055,7 +1052,6 @@ private:
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
 
     NetStats m_net_stats;
-    std::map<std::string, MsgStatsValue> AggregateNetMsgStats(std::vector<int> filters, const Stats& raw_stats) const;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};
