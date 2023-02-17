@@ -861,7 +861,7 @@ public:
         int msg_count;
         uint64_t byte_count;
     };
-    using Stats = std::array<std::array<std::array<MsgStatsValue, NUM_NET_MESSAGE_TYPES>,
+    using Stats = std::array<std::array<std::array<MsgStatsValue, NUM_NET_MESSAGE_TYPES + 1>, // add 1 for the other message type
         static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES)>, NET_MAX>;
 
     /** Get a unique deterministic randomizer. */
@@ -882,7 +882,7 @@ public:
             {
                 for (int network_index = 0; network_index < NET_MAX; network_index++) {
                     for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
-                        for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES; message_index++) {
+                        for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES + 1; message_index++) { // +1 for the "other" message type
                             auto& recv_stat = m_recv.at(network_index).at(connection_index).at(message_index);
                             recv_stat.msg_count = 0;
                             recv_stat.byte_count = 0;

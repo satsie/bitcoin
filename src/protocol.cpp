@@ -91,8 +91,7 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::SENDTXRCNCL,
 };
 
-// TODO note in PR. The +1 is to account for the other netmessage type. Does it belong in allNetMessageTypes?
-static_assert(NUM_NET_MESSAGE_TYPES == sizeof(allNetMessageTypes)/sizeof(allNetMessageTypes[0]) + 1, "Please update NUM_NET_MESSAGE_TYPES");
+static_assert(NUM_NET_MESSAGE_TYPES == sizeof(allNetMessageTypes)/sizeof(allNetMessageTypes[0]), "Please update NUM_NET_MESSAGE_TYPES");
 
 const static std::vector<std::string> allNetMessageTypesVec(std::begin(allNetMessageTypes), std::end(allNetMessageTypes));
 
@@ -200,7 +199,8 @@ int getMessageTypeIndex(std::string msg_type) {
         return index;
     } else {
         LogPrintf("\n\nstacie - ===== getMessageTypeIndex() failure on message type %s =====", msg_type);
-        assert(false);
+        // assign the last index to be the other message type
+        return NUM_NET_MESSAGE_TYPES;
     }
 }
 

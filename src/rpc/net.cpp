@@ -511,6 +511,130 @@ static RPCHelpMan getaddednodeinfo()
     };
 }
 
+#include <util/overloaded.h>
+
+// TODO where should this class go?
+class MultiLevelMap
+{
+    private:
+        size_t m_levels = 0;
+        std::variant<
+            std::map<std::string, CConnman::MsgStatsValue>,
+            std::map<std::string, MultiLevelMap>> m_varmap;
+
+    public:
+        explicit MultiLevelMap(size_t levels) : m_levels{levels}
+        {
+            if (levels > 1) {
+                m_varmap.emplace<1>();
+            } else {
+                m_varmap.emplace<0>();
+            }
+        }
+
+        CConnman::MsgStatsValue* get_value(const Span<std::string>& steps)
+        {
+            if (steps.size() == 0) return nullptr;
+            return std::visit(util::Overloaded{
+                [&](std::map<std::string, CConnman::MsgStatsValue>& m) {
+                    return &m[steps.front()]; // create if not present
+                },
+                [&](std::map<std::string, MultiLevelMap>& m) {
+                    size_t sublevel = m_levels > 0 ? m_levels - 1 : 0;
+                    auto [it, inserted] = m.try_emplace(steps.front(), sublevel);
+                    return it->second.get_value(steps.subspan(1));
+                }}, m_varmap);
+        }
+
+        UniValue to_univalue() const
+        {
+            UniValue result(UniValue::VOBJ);
+            std::visit(util::Overloaded{
+                [&](const std::map<std::string, CConnman::MsgStatsValue>& m) {
+                    for (auto& [k,v] : m) {
+                        if (v.msg_count > 0) {
+                            UniValue msg_stats(UniValue::VOBJ);
+                            msg_stats.pushKV("msg_count", v.msg_count);
+                            msg_stats.pushKV("total_bytes", v.byte_count);
+                            result.pushKV(k, msg_stats);
+                        }
+                    }
+                },
+                [&](const std::map<std::string, MultiLevelMap>& m) {
+                    for (auto& [k,v] : m) {
+                        UniValue v_univalue = v.to_univalue();
+                        if (v_univalue.size() > 0) {
+                            result.pushKV(k, v_univalue);
+                        }
+                    }
+                }}, m_varmap);
+            return result;
+        }
+};
+
+
+UniValue AggregateNetMsgStatsAJ(const std::vector<int>& filters, const CConnman::Stats& raw_stats)
+{
+    const size_t num_filters = filters.size();
+    size_t map_depth = 1;
+
+    if (num_filters > 0) {
+        map_depth = num_filters;
+    }
+
+    MultiLevelMap result{map_depth};
+
+    // Iterate over the multi dimensional array that holds the raw stats
+    for (int network_index = 0; network_index < NET_MAX; network_index++) {
+        for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
+            for (std::size_t message_index = 0; message_index < (NUM_NET_MESSAGE_TYPES + 1); message_index++) {
+                const CConnman::MsgStatsValue& raw_stats_value = raw_stats[network_index][connection_index][message_index];
+                std::vector<std::string> path{};
+                // "result" is our multi-level map, we use path to keep track of where we are as we move down it
+
+                std::string filter_name = "";
+
+                for (unsigned int i = 0; i < num_filters; i++) {
+                    int filter = filters[i];
+
+                    // get the filter_name, which tells us which subtree to move into
+                    if (filter == 0) {
+                        // message type
+                        // Should NET_MESSAGE_TYPE_OTHER be added to getAllNetMessageTypes?
+                        if (message_index == NUM_NET_MESSAGE_TYPES) {
+                            filter_name = "other"; // instead of *other*
+                        } else {
+                            filter_name = getAllNetMessageTypes()[message_index];
+                        }
+                    } else if (filter == 1) {
+                        // connection type
+                        filter_name = ConnectionTypeAsString(static_cast<ConnectionType>(connection_index));
+                    } else {
+                        // network type
+                        filter_name = GetNetworkName(static_cast<Network>(network_index));
+                    }
+                    path.push_back(filter_name);
+                }
+
+                if (path.size() == 0) {
+                    path.push_back("total");
+                }
+
+                CConnman::MsgStatsValue* v = result.get_value(path);
+
+                if (v == nullptr) {
+                    *v = CConnman::MsgStatsValue{raw_stats_value.msg_count, raw_stats_value.byte_count};
+                } else if (raw_stats_value.byte_count > 0) {
+                    v->msg_count += raw_stats_value.msg_count;
+                    v->byte_count += raw_stats_value.byte_count;
+                } else {
+                }
+            }
+        }
+    }
+    return result.to_univalue();
+}
+
 std::map<std::string, CConnman::MsgStatsValue> AggregateNetMsgStats(std::vector<int> filters, const CConnman::Stats& raw_stats)
 {
     // An object for the results
@@ -523,7 +647,7 @@ std::map<std::string, CConnman::MsgStatsValue> AggregateNetMsgStats(std::vector<
     // Iterate over the multi dimensional array that holds the raw stats
     for (int network_index = 0; network_index < NET_MAX; network_index++) {
         for (std::size_t connection_index = 0; connection_index < static_cast<std::size_t>(ConnectionType::NUM_CONN_TYPES); connection_index++) {
-            for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES; message_index++) {
+            for (std::size_t message_index = 0; message_index < (NUM_NET_MESSAGE_TYPES + 1); message_index++) {
                 const CConnman::MsgStatsValue& raw_stats_value = raw_stats[network_index][connection_index][message_index];
                 std::string key_string = "stats.";
 
@@ -564,14 +688,8 @@ std::map<std::string, CConnman::MsgStatsValue> AggregateNetMsgStats(std::vector<
 }
 
 
-void PrintNetMsgStats(const CConnman::NetStats& raw_stats)
+void PrintNetMsgStats(std::vector<int> filters, const CConnman::NetStats& raw_stats)
 {
-    // Aggregate the messsages by different filters
-    // 0 = message type
-    // 1 = connection type
-    // 2 = network type
-    std::vector<int> filters{0, 2, 1};
-
     // An object for the results
     // The depth of the return object depends on the number of filters
     std::map<std::string, CConnman::MsgStatsValue> agg_sent_stats = AggregateNetMsgStats(filters, raw_stats.GetSent());
@@ -650,9 +768,6 @@ static RPCHelpMan getnetmsgstats()
         {
             NodeContext& node = EnsureAnyNodeContext(request.context);
             const CConnman& connman = EnsureConnman(node);
-
-            PrintNetMsgStats(connman.GetNetStats());
-
             std::vector<int> filters;
 
             if (!request.params[0].isNull()) {
@@ -678,32 +793,10 @@ static RPCHelpMan getnetmsgstats()
             }
 
             UniValue obj(UniValue::VOBJ);
+            UniValue foo = AggregateNetMsgStatsAJ(filters, connman.GetNetStats().GetSent());
+            obj.pushKV("sent", AggregateNetMsgStatsAJ(filters, connman.GetNetStats().GetSent()));
+            obj.pushKV("received", AggregateNetMsgStatsAJ(filters, connman.GetNetStats().GetRecv()));
 
-            std::map<std::string, CConnman::MsgStatsValue> raw_sent_stats = AggregateNetMsgStats(filters, connman.GetNetStats().GetSent());
-            std::map<std::string, CConnman::MsgStatsValue> raw_recv_stats = AggregateNetMsgStats(filters, connman.GetNetStats().GetRecv());
-
-            UniValue sent_stats(UniValue::VOBJ);
-            for (const auto& i : raw_sent_stats) {
-                if (i.second.msg_count > 0 || i.second.byte_count > 0) {
-                    UniValue stats(UniValue::VOBJ);
-                    stats.pushKV("msg_count", i.second.msg_count);
-                    stats.pushKV("total_bytes", i.second.byte_count);
-                    sent_stats.pushKV(i.first, stats);
-                }
-            }
-
-            UniValue recv_stats(UniValue::VOBJ);
-            for (const auto& i : raw_recv_stats) {
-                if (i.second.msg_count > 0 || i.second.byte_count > 0) {
-                    UniValue stats(UniValue::VOBJ);
-                    stats.pushKV("msg_count", i.second.msg_count);
-                    stats.pushKV("total_bytes", i.second.byte_count);
-                    recv_stats.pushKV(i.first, stats);
-                }
-            }
-
-            obj.pushKV("sent", sent_stats);
-            obj.pushKV("received", recv_stats);
             return obj;
         }
     };
