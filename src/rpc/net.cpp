@@ -731,7 +731,8 @@ static RPCHelpMan getnetmsgstats()
                 }
             }
         },
-        RPCResult{
+        {
+        RPCResult{ // A return object for one filter
             RPCResult::Type::OBJ, "", "",
             {
                 {RPCResult::Type::OBJ_DYN, "sent", "Statistics for sent network traffic.\n"
@@ -739,13 +740,13 @@ static RPCHelpMan getnetmsgstats()
                                         "the statistics for that type are 0. Only known message,\n"
                                         "connection, and network types can appear as keys in the object.",
                 {
+                    // TODO create a helper function similar to MempoolEntryDescription() in mempool.cpp
                     {RPCResult::Type::OBJ, "", "message count and byte total",
                         {
                             {RPCResult::Type::NUM, "msg_count", "Total number of messages sent"},
                             {RPCResult::Type::NUM, "total_bytes", "Total number of bytes sent"}
                         }
-                    }
-                }},
+                }}},
                 {RPCResult::Type::OBJ_DYN, "received", "Statistics for received network traffic.\n"
                                         "When a message, connection, or network type is not listed,\n"
                                         "the statistics for that type are 0. Only known message,\n"
@@ -760,6 +761,90 @@ static RPCHelpMan getnetmsgstats()
                 }}
             }
         },
+        RPCResult{ // A return object for two filters
+            RPCResult::Type::OBJ, "", "",
+            {
+                {RPCResult::Type::OBJ_DYN, "sent", "Statistics for sent network traffic.\n"
+                                        "When a message, connection, or network type is not listed,\n"
+                                        "the statistics for that type are 0. Only known message,\n"
+                                        "connection, and network types can appear as keys in the object.",
+                {
+                    {RPCResult::Type::OBJ_DYN, "values for the second filter", "",
+                        {
+                            {RPCResult::Type::OBJ, "", "message count and byte total",
+                                {
+                                    {RPCResult::Type::NUM, "msg_count", "Total number of messages sent"},
+                                    {RPCResult::Type::NUM, "total_bytes", "Total number of bytes sent"}
+                                }
+                                }
+                            }
+                }}},
+                {RPCResult::Type::OBJ_DYN, "received", "Statistics for received network traffic.\n"
+                                        "When a message, connection, or network type is not listed,\n"
+                                        "the statistics for that type are 0. Only known message,\n"
+                                        "connection, and network types can appear as keys in the object.",
+                {
+                    {RPCResult::Type::OBJ_DYN, "values for the second filter", "",
+                        {
+                            {RPCResult::Type::OBJ, "", "message count and byte total",
+                                {
+                                    {RPCResult::Type::NUM, "msg_count", "Total number of messages sent"},
+                                    {RPCResult::Type::NUM, "total_bytes", "Total number of bytes sent"}
+                                }
+                            }
+                        }
+                    }
+                }}
+            }
+        },
+        RPCResult{ // A return object for three filters
+            RPCResult::Type::OBJ, "", "",
+            {
+                {RPCResult::Type::OBJ_DYN, "sent", "Statistics for sent network traffic.\n"
+                                        "When a message, connection, or network type is not listed,\n"
+                                        "the statistics for that type are 0. Only known message,\n"
+                                        "connection, and network types can appear as keys in the object.",
+                {
+                    {RPCResult::Type::OBJ_DYN, "values for the second filter", "",
+                        {
+                        {RPCResult::Type::OBJ_DYN, "values for the third filter", "",
+                            {
+                                {RPCResult::Type::OBJ, "", "message count and byte total",
+                                    {
+                                        {RPCResult::Type::NUM, "msg_count", "Total number of messages sent"},
+                                        {RPCResult::Type::NUM, "total_bytes", "Total number of bytes sent"}
+                                    }
+                                }
+                            }
+                        }
+                        }
+                    }
+                }
+                },
+                {RPCResult::Type::OBJ_DYN, "received", "Statistics for received network traffic.\n"
+                                        "When a message, connection, or network type is not listed,\n"
+                                        "the statistics for that type are 0. Only known message,\n"
+                                        "connection, and network types can appear as keys in the object.",
+                {
+                    {RPCResult::Type::OBJ_DYN, "values for the second filter", "",
+                        {
+                        {RPCResult::Type::OBJ_DYN, "values for the third filter", "",
+                            {
+                                {RPCResult::Type::OBJ, "", "message count and byte total",
+                                    {
+                                        {RPCResult::Type::NUM, "msg_count", "Total number of messages sent"},
+                                        {RPCResult::Type::NUM, "total_bytes", "Total number of bytes sent"}
+                                    }
+                                }
+                            }
+                        }
+                        }
+                    }
+                }
+                }
+            }
+        }
+    },
         RPCExamples {
             HelpExampleCli("getnetmsgstats", R"('["conntype","msgtype"]')") +
             HelpExampleRpc("getnetmsgstats", R"(["conntype","msgtype"])")

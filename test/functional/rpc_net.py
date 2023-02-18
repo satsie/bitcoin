@@ -188,23 +188,23 @@ class NetTest(BitcoinTestFramework):
         assert_array_result([getnetmsgstats_msgtype['received']['pong']], {'msg_count': 4}, {'total_bytes': 128})
 
         getnetmsgstats_conntype_msgtype = self.nodes[0].getnetmsgstats(filters=["conntype", "msgtype"])
-        assert_array_result([getnetmsgstats_conntype_msgtype['received']['manual.pong']], {'msg_count': 2}, {'total_bytes': 64})
+        assert_array_result([getnetmsgstats_conntype_msgtype['received']['manual']['pong']], {'msg_count': 2}, {'total_bytes': 64})
 
         getnetmsgstats_conntype_msgtype_network = self.nodes[0].getnetmsgstats(filters=["conntype", "msgtype", "network"])
         # TODO: is it okay to test against the "not_publicly_routable" network type?
         manualconn_sendcmpct_stats = [{'msg_count': 2}, {'total_bytes': 66}]
-        assert_array_result([getnetmsgstats_conntype_msgtype_network['sent']['manual.sendcmpct.not_publicly_routable']],
+        assert_array_result([getnetmsgstats_conntype_msgtype_network['sent']['manual']['sendcmpct']['not_publicly_routable']],
             manualconn_sendcmpct_stats[0], manualconn_sendcmpct_stats[1])
 
         # stats should be the same as the previous test, even with the filters reordered
         getnetmsgstats_network_conntype_msgtype = self.nodes[0].getnetmsgstats(filters=["network", "conntype", "msgtype"])
-        assert_array_result([getnetmsgstats_network_conntype_msgtype['sent']['not_publicly_routable.manual.sendcmpct']],
+        assert_array_result([getnetmsgstats_network_conntype_msgtype['sent']['not_publicly_routable']['manual']['sendcmpct']],
             manualconn_sendcmpct_stats[0], manualconn_sendcmpct_stats[1])
 
         # check that the breakdown of sent ping messages matches the aggregation when only the msgtype filter is on
         getnetmsgstats_msgtype_conntype = self.nodes[0].getnetmsgstats(filters=["msgtype", "conntype"])
-        sent_ping_inbound = getnetmsgstats_msgtype_conntype['sent']['ping.inbound']
-        sent_ping_manual = getnetmsgstats_msgtype_conntype['sent']['ping.manual']
+        sent_ping_inbound = getnetmsgstats_msgtype_conntype['sent']['ping']['inbound']
+        sent_ping_manual = getnetmsgstats_msgtype_conntype['sent']['ping']['manual']
         assert_equal(sent_ping_inbound['msg_count'] + sent_ping_manual['msg_count'],
             getnetmsgstats_msgtype['sent']['ping']['msg_count'])
         assert_equal(sent_ping_inbound['total_bytes'] + sent_ping_manual['total_bytes'],
