@@ -854,6 +854,11 @@ public:
     uint64_t GetTotalBytesRecv() const;
     uint64_t GetTotalBytesSent() const EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
 
+    enum class Direction { SENT, RECV };
+
+    // Number of elements in `Direction`.
+    static constexpr size_t NUM_DIRECTIONS{2};
+
     /** Get a unique deterministic randomizer. */
     CSipHasher GetDeterministicRandomizer(uint64_t id) const;
 
