@@ -54,6 +54,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <tuple>
 #include <unordered_map>
 
 #include <math.h>
@@ -666,7 +667,8 @@ void CNode::CopyStats(CNodeStats& stats)
 }
 #undef X
 
-bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMsgTypeSize& msgtype_bytes)
+bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
+                            std::map<std::string, std::tuple<int, uint64_t>>& msgtype_countbytes)
 {
     complete = false;
     const auto time = GetTime<std::chrono::microseconds>();
@@ -702,12 +704,18 @@ bool CNode::ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete, mapMs
             i->second += msg.m_raw_message_size;
 
             // Update the output parameter that holds received bytes per message type
-            auto j = msgtype_bytes.find(msg.m_type);
-            if (j == msgtype_bytes.end()) {
-                j = msgtype_bytes.find(NET_MESSAGE_TYPE_OTHER);
+            auto j = msgtype_countbytes.find(msg.m_type);
+            if (j == msgtype_countbytes.end()) {
+                j = msgtype_countbytes.find(NET_MESSAGE_TYPE_OTHER);
             }
-            assert(j != msgtype_bytes.end());
-            j->second += msg.m_raw_message_size;
+            assert(j != msgtype_countbytes.end());
+
+            // I'm guessing the C++ here could use some improvement..
+            std::tuple<int, uint64_t> count_bytes = j->second;
+            std::get<0>(count_bytes) += 1;
+            std::get<1>(count_bytes) += msg.m_raw_message_size;
+
+            j->second = count_bytes;
 
             // push the message to the process queue,
             vRecvMsg.push_back(std::move(msg));
@@ -1331,19 +1339,24 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
             {
                 bool notify = false;
 
-                // a map to store the bytes by message type
-                mapMsgTypeSize msgtype_bytes;
+                // a map to store each message type mapped to the total message count,
+                // as well as the total number of message bytes
+                std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes;
 
                 // initialize all message type values to zero
                 for (const std::string& msg : getAllNetMessageTypes())
-                    msgtype_bytes[msg] = 0;
-                msgtype_bytes[NET_MESSAGE_TYPE_OTHER] = 0;
+                    msgtype_countbytes[msg] = std::make_tuple(0, 0);
+                msgtype_countbytes[NET_MESSAGE_TYPE_OTHER] = std::make_tuple(0, 0);
 
-                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, msgtype_bytes)) {
+                if (!pnode->ReceiveMsgBytes({pchBuf, (size_t)nBytes}, notify, msgtype_countbytes)) {
                     pnode->CloseSocketDisconnect();
                 }
                 RecordBytesRecv(nBytes);
-                RecordBytesRecvByMsgType(msgtype_bytes);
+                // TODO network type - Call CNode::ConnectedThroughNetwork()
+                // TODO get the connection type from the pnode (do the CNode::ConnectionTypeAsString() method for now)
+                // Could also get both these pieces of information by using CNodeStats, but it takes work to initialize a
+                // data structure for the CNodeStats to populate. Seems like too much overhead.
+                RecordBytesRecvByMsgType(msgtype_countbytes);
 
                 if (notify) {
                     size_t nSizeAdded = 0;
@@ -2682,16 +2695,18 @@ void CConnman::RecordBytesRecv(uint64_t bytes)
     nTotalBytesRecv += bytes;
 }
 
-void CConnman::RecordBytesRecvByMsgType(mapMsgTypeSize msgtype_bytes)
+void CConnman::RecordBytesRecvByMsgType(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes)
 {
-    for (auto const& msg_type_bytes : msgtype_bytes) {
-        auto i = m_msgtype_bytes_recv.find(msg_type_bytes.first);
+    for (auto const& msgtype_stats : msgtype_countbytes) {
+        auto i = m_msgtype_bytes_recv.find(msgtype_stats.first);
         if (i == m_msgtype_bytes_recv.end()) {
             i = m_msgtype_bytes_recv.find(NET_MESSAGE_TYPE_OTHER);
         }
 
         assert(i != m_msgtype_bytes_recv.end());
-        i->second += msg_type_bytes.second;
+        std::tuple<int, uint64_t> count_bytes = msgtype_stats.second;
+
+        i->second += std::get<1>(count_bytes);
     }
 }
 
@@ -2903,6 +2918,10 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
     }
     if (nBytesSent) {
         RecordBytesSent(nBytesSent);
+        // TODO - do we have network type here?
+        // I believe the connection can come from CNode (pnode) - there are methods like IsBlockOnlyConn(), and a private m_conn_type variable,
+        // which can be accessed with CNode::ConnectionTypeAsString()
+        // message count is just one
         RecordBytesSentByMsgType(msg.m_type, nBytesSent);
     }
 }

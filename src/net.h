@@ -40,6 +40,7 @@
 #include <optional>
 #include <queue>
 #include <thread>
+#include <tuple>
 #include <unordered_set>
 #include <vector>
 
@@ -552,13 +553,14 @@ public:
      * @param[in]   msg_bytes   The raw data
      * @param[out]  complete    Set True if at least one message has been
      *                          deserialized and is ready to be processed
-     * @param[out]  mapBytesPerMsg   A map of message types and the
-     *                               number of bytes received per type
+     * @param[out]  msgtype_countbytes   The message types mapped to a tuple
+     *                          that contains the total message count and
+     *                          total number of message bytes
      * @return  True if the peer should stay connected,
      *          False if the peer should be disconnected from.
      */
     bool ReceiveMsgBytes(Span<const uint8_t> msg_bytes, bool& complete,
-                         mapMsgTypeSize& msgtype_bytes) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
+                         std::map<std::string, std::tuple<int, uint64_t>>& msgtype_bytes) EXCLUSIVE_LOCKS_REQUIRED(!cs_vRecv);
 
     void SetCommonVersion(int greatest_common_version)
     {
@@ -982,7 +984,7 @@ private:
 
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
-    void RecordBytesRecvByMsgType(mapMsgTypeSize msgtype_bytes);
+    void RecordBytesRecvByMsgType(std::map<std::string, std::tuple<int, uint64_t>> msgtype_countbytes);
     void RecordBytesSent(uint64_t bytes) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex);
     void RecordBytesSentByMsgType(std::string msg_type, size_t bytes);
 
