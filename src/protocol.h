@@ -274,6 +274,9 @@ constexpr size_t NUM_NET_MESSAGE_TYPES = 35;
 /* Get a vector of all valid message types (see above) */
 const std::vector<std::string>& getAllNetMessageTypes();
 
+/* Get the index of a message type from the vector of all message types*/
+int getMessageTypeIndex(std::string msg_type);
+
 /** nServices flags */
 enum ServiceFlags : uint64_t {
     // NOTE: When adding here, be sure to update serviceFlagToStr too
