@@ -723,6 +723,7 @@ public:
             m_added_nodes = connOptions.m_added_nodes;
         }
         m_onion_binds = connOptions.onion_binds;
+        m_net_stats.Init();
     }
 
     CConnman(uint64_t seed0, uint64_t seed1, AddrMan& addrman, const NetGroupManager& netgroupman,
@@ -879,6 +880,65 @@ public:
     /** Return true if we should disconnect the peer for failing an inactivity check. */
     bool ShouldRunInactivityChecks(const CNode& node, std::chrono::seconds now) const;
 
+    /**
+     * Placeholder for total network traffic. Split by direction, network, connection
+     * type and message type (bytes and count of messages).
+     */
+    class NetStats
+    {
+    public:
+        void Init()
+        {
+            for (std::size_t direction_index = 0; direction_index < NUM_DIRECTIONS; direction_index++) {
+                for (int network_index = 0; network_index < NET_MAX; network_index++) {
+                    for (std::size_t connection_index = 0; connection_index < NUM_CONNECTION_TYPES; connection_index++) {
+                        for (std::size_t message_index = 0; message_index < NUM_NET_MESSAGE_TYPES + 1; message_index++) { // +1 for the "other" message type
+                            auto& stat = m_stats.at(direction_index).at(network_index).at(connection_index).at(message_index);
+                            stat.msg_count = 0;
+                            stat.byte_count = 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        Stats GetStats() const
+        {
+            return m_stats;
+        }
+
+        /**
+         * Increment the amount of bytes received by `bytes` and the amount of messages by 1.
+         */
+        void RecordRecv(Network net,
+                        ConnectionType conn_type,
+                        const std::string& msg_type,
+                        size_t byte_count)
+        {
+            auto& stat = m_stats.at(1).at(net).at(static_cast<int>(conn_type)).at(getMessageTypeIndex(msg_type));
+            stat.msg_count += 1;
+            stat.byte_count += byte_count;
+        }
+
+        /**
+         * Increment the amount of bytes sent by `bytes` and the amount of messages by 1.
+         */
+        void RecordSent(Network net,
+                        ConnectionType conn_type,
+                        const std::string& msg_type,
+                        size_t byte_count)
+        {
+            auto& stat = m_stats.at(0).at(net).at(static_cast<int>(conn_type)).at(getMessageTypeIndex(msg_type));
+            stat.msg_count += 1;
+            stat.byte_count += byte_count;
+        }
+
+    private:
+        Stats m_stats;
+    };
+
+    CConnman::NetStats GetNetStats() const;
+
 private:
     struct ListenSocket {
     public:
@@ -1003,6 +1063,8 @@ private:
     mutable Mutex m_total_bytes_sent_mutex;
     std::atomic<uint64_t> nTotalBytesRecv{0};
     uint64_t nTotalBytesSent GUARDED_BY(m_total_bytes_sent_mutex) {0};
+
+    NetStats m_net_stats;
 
     // outbound limit & stats
     uint64_t nMaxOutboundTotalBytesSentInCycle GUARDED_BY(m_total_bytes_sent_mutex) {0};
