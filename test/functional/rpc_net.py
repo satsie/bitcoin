@@ -13,14 +13,17 @@ import time
 
 import test_framework.messages
 from test_framework.p2p import (
+    P2PDataStore,
     P2PInterface,
     P2P_SERVICES,
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_approx,
+    assert_array_result,
     assert_equal,
     assert_greater_than,
+    assert_greater_than_or_equal,
     assert_raises_rpc_error,
     p2p_port,
 )
@@ -60,6 +63,7 @@ class NetTest(BitcoinTestFramework):
         self.test_connection_count()
         self.test_getpeerinfo()
         self.test_getnettotals()
+        self.test_getnetmsgstats()
         self.test_getnetworkinfo()
         self.test_getaddednodeinfo()
         self.test_service_flags()
@@ -168,12 +172,96 @@ class NetTest(BitcoinTestFramework):
             self.wait_until(lambda: peer_after()['bytesrecv_per_msg'].get('pong', 0) >= peer_before['bytesrecv_per_msg'].get('pong', 0) + 32, timeout=1)
             self.wait_until(lambda: peer_after()['bytessent_per_msg'].get('ping', 0) >= peer_before['bytessent_per_msg'].get('ping', 0) + 32, timeout=1)
 
+    def test_getnetmsgstats(self):
+        self.log.info("Test getnetmsgstats")
+
+        # Compare byte count with what getnettotals returns
+        getnettotals_response = self.nodes[0].getnettotals()
+        getnetmsgstats_response = self.nodes[0].getnetmsgstats()
+
+        assert_equal(getnettotals_response['totalbytessent'], getnetmsgstats_response['total']['sent']['total_bytes'])
+        assert_equal(getnettotals_response['totalbytesrecv'], getnetmsgstats_response['total']['received']['total_bytes'])
+
+        # Test filter aggregation with a few different combinations
+        getnetmsgstats_msgtype = self.nodes[0].getnetmsgstats(filters=["msgtype"])
+        assert_array_result([getnetmsgstats_msgtype['total']['sent']['ping']], {'msg_count': 4}, {'total_bytes': 128})
+        assert_array_result([getnetmsgstats_msgtype['total']['received']['pong']], {'msg_count': 4}, {'total_bytes': 128})
+
+        getnetmsgstats_conntype_msgtype = self.nodes[0].getnetmsgstats(filters=["conntype", "msgtype"])
+        assert_array_result([getnetmsgstats_conntype_msgtype['total']['received']['manual']['pong']], {'msg_count': 2}, {'total_bytes': 64})
+
+        getnetmsgstats_conntype_msgtype_network = self.nodes[0].getnetmsgstats(filters=["conntype", "msgtype", "network"])
+        manualconn_sendcmpct_stats = [{'msg_count': 2}, {'total_bytes': 66}]
+        assert_array_result([getnetmsgstats_conntype_msgtype_network['total']['sent']['manual']['sendcmpct']['not_publicly_routable']],
+            manualconn_sendcmpct_stats[0], manualconn_sendcmpct_stats[1])
+
+        # stats should be the same as the previous test, even with the filters reordered
+        getnetmsgstats_network_conntype_msgtype = self.nodes[0].getnetmsgstats(filters=["network", "conntype", "msgtype"])
+        assert_array_result([getnetmsgstats_network_conntype_msgtype['total']['sent']['not_publicly_routable']['manual']['sendcmpct']],
+            manualconn_sendcmpct_stats[0], manualconn_sendcmpct_stats[1])
+
+        # check that the breakdown of sent ping messages matches the aggregation when only the msgtype filter is on
+        getnetmsgstats_msgtype_conntype = self.nodes[0].getnetmsgstats(filters=["msgtype", "conntype"])
+        sent_ping_inbound = getnetmsgstats_msgtype_conntype['total']['sent']['ping']['inbound']
+        sent_ping_manual = getnetmsgstats_msgtype_conntype['total']['sent']['ping']['manual']
+        assert_equal(sent_ping_inbound['msg_count'] + sent_ping_manual['msg_count'],
+            getnetmsgstats_msgtype['total']['sent']['ping']['msg_count'])
+        assert_equal(sent_ping_inbound['total_bytes'] + sent_ping_manual['total_bytes'],
+            getnetmsgstats_msgtype['total']['sent']['ping']['total_bytes'])
+
+        # Test that message count and total number of bytes increment when a ping message is sent
+        total_sent_ping_stats = getnetmsgstats_msgtype['total']['sent']['ping']
+        total_received_pong_stats = getnetmsgstats_msgtype['total']['received']['pong']
+
+        # ping() sends a ping to all other nodes, so message count increases by at least two pings.
+        # One for peer0 and one for peer1
+        self.nodes[0].ping()
+        self.wait_until(lambda: (self.nodes[0].getnetmsgstats(filters=["msgtype"])['total']['sent']['ping']['msg_count'] >= total_sent_ping_stats['msg_count'] + 1), timeout=1)
+        self.wait_until(lambda: (self.nodes[0].getnetmsgstats(filters=["msgtype"])['total']['received']['pong']['msg_count'] >= total_received_pong_stats['msg_count'] + 1), timeout=1)
+
+        getnetmsgstats_sent_ping = self.nodes[0].getnetmsgstats(filters=["msgtype"])['total']['sent']['ping']
+        assert_greater_than_or_equal(getnetmsgstats_sent_ping['total_bytes'], total_sent_ping_stats['total_bytes'] + 2 * 32)
+
+        getnetmsgstats_received_pong = self.nodes[0].getnetmsgstats(filters=["msgtype"])['total']['received']['pong']
+        assert_greater_than_or_equal(getnetmsgstats_received_pong['total_bytes'], total_received_pong_stats['total_bytes'] + 2 * 32)
+
+        # Test that when a message is broken in two, the stats only update once the full message has been received
+        # Create valid message for another node to send to me
+        conn = self.nodes[0].add_p2p_connection(P2PDataStore())
+        ping_msg = conn.build_message(test_framework.messages.msg_ping(nonce=12345))
+        cut_pos = 12  # Chosen at an arbitrary position within the header
+        # Send message in two pieces
+        getnettotals_before_partial_ping = self.nodes[0].getnettotals()['totalbytesrecv']
+        netmsgstats_before_partial_ping = self.nodes[0].getnetmsgstats(filters=["msgtype"])['total']['received']['ping']
+
+        conn.send_raw_message(ping_msg[:cut_pos])
+        # getnettotals gets updated even for partial messages
+        self.wait_until(lambda: self.nodes[0].getnettotals()['totalbytesrecv'] > getnettotals_before_partial_ping)
+        getnettotals_partial_ping = self.nodes[0].getnettotals()['totalbytesrecv']
+        # If this assert fails, we've hit an unlikely race
+        # where the test framework sent a message in between the two halves
+        assert_equal(getnettotals_partial_ping, getnettotals_before_partial_ping + cut_pos)
+
+        # check that getnetmsgstats did not update
+        getnetmsgstats_after_partial_ping = self.nodes[0].getnetmsgstats(filters=["msgtype"])['total']['received']['ping']
+        assert_equal(getnetmsgstats_after_partial_ping['msg_count'], netmsgstats_before_partial_ping['msg_count'])
+        assert_equal(getnetmsgstats_after_partial_ping['total_bytes'], netmsgstats_before_partial_ping['total_bytes'])
+
+        # send the rest of the ping
+        conn.send_raw_message(ping_msg[cut_pos:])
+        self.wait_until(lambda: self.nodes[0].getnettotals()['totalbytesrecv'] > getnettotals_partial_ping)
+        getnetmsgstats_finished_ping = self.nodes[0].getnetmsgstats(filters=["msgtype"])['total']['received']['ping']
+        assert_equal(getnetmsgstats_finished_ping['msg_count'], netmsgstats_before_partial_ping['msg_count'] + 1)
+        assert_equal(getnetmsgstats_finished_ping['total_bytes'], netmsgstats_before_partial_ping['total_bytes'] + 32)
+
+        conn.sync_with_ping(timeout=1)
+
     def test_getnetworkinfo(self):
         self.log.info("Test getnetworkinfo")
         info = self.nodes[0].getnetworkinfo()
         assert_equal(info['networkactive'], True)
-        assert_equal(info['connections'], 2)
-        assert_equal(info['connections_in'], 1)
+        assert_equal(info['connections'], 3)
+        assert_equal(info['connections_in'], 2)
         assert_equal(info['connections_out'], 1)
 
         with self.nodes[0].assert_debug_log(expected_msgs=['SetNetworkActive: false\n']):
