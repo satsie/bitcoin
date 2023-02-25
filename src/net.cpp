@@ -1330,6 +1330,12 @@ void CConnman::SocketHandlerConnected(const std::vector<CNode*>& nodes,
                         // vRecvMsg contains only completed CNetMessage
                         // the single possible partially deserialized message are held by TransportDeserializer
                         nSizeAdded += msg.m_raw_message_size;
+
+                        // Stats are only updated for fully received messages
+                        m_net_stats.RecordRecv(pnode->ConnectedThroughNetwork(),
+                                               pnode->m_conn_type,
+                                               msg.m_type,
+                                               msg.m_raw_message_size);
                     }
                     {
                         LOCK(pnode->cs_vProcessMsg);
@@ -2844,6 +2850,12 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
         //log total amount of bytes per message type
         pnode->mapSendBytesPerMsgType[msg.m_type] += nTotalSize;
         pnode->nSendSize += nTotalSize;
+
+        // update network message stats
+        m_net_stats.RecordSent(pnode->ConnectedThroughNetwork(),
+                               pnode->m_conn_type,
+                               msg.m_type,
+                               nTotalSize);
 
         if (pnode->nSendSize > nSendBufferMaxSize) pnode->fPauseSend = true;
         pnode->vSendMsg.push_back(std::move(serializedHeader));
