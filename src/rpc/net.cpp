@@ -576,6 +576,90 @@ UniValue AggregateNetMsgStats(const std::vector<StatsFilter>& filters, const CCo
     return result.to_univalue();
 }
 
+static std::vector<RPCResult> NetMsgStat()
+{
+    return {
+        {RPCResult::Type::OBJ, "", "message count and byte total", {{RPCResult::Type::NUM, "msg_count", "Total number of messages sent"}, {RPCResult::Type::NUM, "total_bytes", "Total number of bytes sent"}}}};
+}
+
+static RPCHelpMan getnetmsgstats()
+{
+    return RPCHelpMan{
+        "getnetmsgstats",
+        "\nReturns the message count and total number of bytes for network traffic.\n"
+        "Results may optionally be broken down by one or more of the following filters:\n"
+        "msgtype, conntype, network, direction\n",
+        {{"filters", RPCArg::Type::ARR, RPCArg::Optional::OMITTED, "An array of filters for breaking down the results", {{"filter", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter to break results down by.\n"
+                                                                                                                                                                                  "Valid options are: msgtype, conntype, network, and direction."}}}},
+        {RPCResult{// A return object for one filter
+                   RPCResult::Type::OBJ,
+                   "",
+                   "",
+                   {{RPCResult::Type::OBJ_DYN, "total", "Statistics for total network traffic.\n"
+                                                       "When a message, connection, network type, or direction is not listed,\n"
+                                                       "the statistics for that type are 0. Only known message,\n"
+                                                       "connection, and network types can appear as keys in the object.",
+                     NetMsgStat()}}},
+         RPCResult{// A return object for two filters
+                   RPCResult::Type::OBJ,
+                   "",
+                   "",
+                   {{RPCResult::Type::OBJ_DYN, "total", "Statistics for sent network traffic.\n"
+                                                       "When a message, connection, network type, or direction is not listed,\n"
+                                                       "the statistics for that type are 0. Only known message,\n"
+                                                       "connection, and network types can appear as keys in the object.",
+                     {{RPCResult::Type::OBJ_DYN, "values for the second filter", "", NetMsgStat()}}}}},
+         RPCResult{// A return object for three filters
+                   RPCResult::Type::OBJ,
+                   "",
+                   "",
+                   {{RPCResult::Type::OBJ_DYN, "total", "Statistics for sent network traffic.\n"
+                                                       "When a message, connection, network type, or direction is not listed,\n"
+                                                       "the statistics for that type are 0. Only known message,\n"
+                                                       "connection, and network types can appear as keys in the object.",
+                     {{RPCResult::Type::OBJ_DYN, "values for the second filter", "", {{RPCResult::Type::OBJ_DYN, "values for the third filter", "", NetMsgStat()}}}}}}},
+         RPCResult{// A return object for four filters
+                   RPCResult::Type::OBJ,
+                   "",
+                   "",
+                   {{RPCResult::Type::OBJ_DYN, "total", "Statistics for sent network traffic.\n"
+                                                       "When a message, connection, network type, or direction is not listed,\n"
+                                                       "the statistics for that type are 0. Only known message,\n"
+                                                       "connection, and network types can appear as keys in the object.",
+                     {{RPCResult::Type::OBJ_DYN, "values for the second filter", "", {
+                        {RPCResult::Type::OBJ_DYN, "values for the third filter", "", {
+                        {RPCResult::Type::OBJ_DYN, "values for the fourth filter", "", NetMsgStat()}
+                        }}
+                        }}}}}}
+
+                     },
+        RPCExamples{
+            HelpExampleCli("getnetmsgstats", R"('["conntype","msgtype"]')") +
+            HelpExampleRpc("getnetmsgstats", R"(["conntype","msgtype"])")},
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
+            NodeContext& node = EnsureAnyNodeContext(request.context);
+            const CConnman& connman = EnsureConnman(node);
+            std::vector<StatsFilter> filters;
+
+            if (!request.params[0].isNull()) {
+                // Aggregate the messsages by different filters
+                const UniValue raw_filters = request.params[0].get_array();
+
+                for (unsigned int i = 0; i < raw_filters.size(); ++i) {
+                    std::string filter = raw_filters[i].get_str();
+                    StatsFilter stats_filter = StringToStatsFilter(filter);
+                    filters.push_back(stats_filter);
+                }
+            }
+
+            UniValue obj(UniValue::VOBJ);
+            filters.insert(filters.begin(), StatsFilter::DIRECTION); // temporarily force this filter
+            obj.pushKV("total", AggregateNetMsgStats(filters, connman.GetNetStats().GetStats()));
+
+            return obj;
+        }};
+}
+
 static RPCHelpMan getnettotals()
 {
     return RPCHelpMan{"getnettotals",
@@ -1042,6 +1126,7 @@ void RegisterNetRPCCommands(CRPCTable& t)
         {"network", &addnode},
         {"network", &disconnectnode},
         {"network", &getaddednodeinfo},
+        {"network", &getnetmsgstats},
         {"network", &getnettotals},
         {"network", &getnetworkinfo},
         {"network", &setban},

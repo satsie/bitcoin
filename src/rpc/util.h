@@ -451,4 +451,6 @@ enum class StatsFilter {
     DIRECTION,
 };
 
+StatsFilter StringToStatsFilter(std::string stats_filter);
+
 #endif // BITCOIN_RPC_UTIL_H

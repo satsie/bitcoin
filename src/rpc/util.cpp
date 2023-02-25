@@ -1173,3 +1173,16 @@ UniValue GetServicesNames(ServiceFlags services)
 
     return servicesNames;
 }
+
+StatsFilter StringToStatsFilter(std::string stats_filter)
+{
+    if (stats_filter == "msgtype") {
+        return StatsFilter::MESSAGE_TYPE;
+    } else if (stats_filter == "conntype") {
+        return StatsFilter::CONNECTION_TYPE;
+    } else if (stats_filter == "network") {
+        return StatsFilter::NETWORK_TYPE;
+    } else {
+        return StatsFilter::DIRECTION;
+    }
+}
