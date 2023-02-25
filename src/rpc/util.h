@@ -5,6 +5,7 @@
 #ifndef BITCOIN_RPC_UTIL_H
 #define BITCOIN_RPC_UTIL_H
 
+#include <net.h>
 #include <node/transaction.h>
 #include <outputtype.h>
 #include <protocol.h>
@@ -16,6 +17,7 @@
 #include <script/standard.h>
 #include <univalue.h>
 #include <util/check.h>
+#include <util/overloaded.h>
 
 #include <string>
 #include <variant>
@@ -379,6 +381,74 @@ private:
     const std::vector<RPCArg> m_args;
     const RPCResults m_results;
     const RPCExamples m_examples;
+};
+
+class MultiLevelStatsMap
+{
+private:
+    size_t m_levels = 0;
+    std::variant<
+        std::map<std::string, CConnman::MsgStatsValue>,
+        std::map<std::string, MultiLevelStatsMap>>
+        m_varmap;
+
+public:
+    explicit MultiLevelStatsMap(size_t levels) : m_levels{levels}
+    {
+        if (levels > 1) {
+            m_varmap.emplace<1>();
+        } else {
+            m_varmap.emplace<0>();
+        }
+    }
+
+    CConnman::MsgStatsValue* get_value(const Span<std::string>& steps)
+    {
+        if (steps.size() == 0) return nullptr;
+        return std::visit(util::Overloaded{
+                              [&](std::map<std::string, CConnman::MsgStatsValue>& m) {
+                                  return &m[steps.front()]; // create if not present
+                              },
+                              [&](std::map<std::string, MultiLevelStatsMap>& m) {
+                                  size_t sublevel = m_levels > 0 ? m_levels - 1 : 0;
+                                  auto [it, inserted] = m.try_emplace(steps.front(), sublevel);
+                                  return it->second.get_value(steps.subspan(1));
+                              }},
+                          m_varmap);
+    }
+
+    UniValue to_univalue() const
+    {
+        UniValue result(UniValue::VOBJ);
+        std::visit(util::Overloaded{
+                       [&](const std::map<std::string, CConnman::MsgStatsValue>& m) {
+                           for (auto& [k, v] : m) {
+                               if (v.msg_count > 0) {
+                                   UniValue msg_stats(UniValue::VOBJ);
+                                   msg_stats.pushKV("msg_count", v.msg_count);
+                                   msg_stats.pushKV("total_bytes", v.byte_count);
+                                   result.pushKV(k, msg_stats);
+                               }
+                           }
+                       },
+                       [&](const std::map<std::string, MultiLevelStatsMap>& m) {
+                           for (auto& [k, v] : m) {
+                               UniValue v_univalue = v.to_univalue();
+                               if (v_univalue.size() > 0) {
+                                   result.pushKV(k, v_univalue);
+                               }
+                           }
+                       }},
+                   m_varmap);
+        return result;
+    }
+};
+
+enum class StatsFilter {
+    MESSAGE_TYPE,
+    CONNECTION_TYPE,
+    NETWORK_TYPE,
+    DIRECTION,
 };
 
 #endif // BITCOIN_RPC_UTIL_H

@@ -509,6 +509,73 @@ static RPCHelpMan getaddednodeinfo()
     };
 }
 
+UniValue AggregateNetMsgStats(const std::vector<StatsFilter>& filters, const CConnman::Stats& raw_stats)
+{
+    const size_t num_filters = filters.size();
+    size_t map_depth = 1;
+
+    if (num_filters > 0) {
+        map_depth = num_filters;
+    }
+
+    MultiLevelStatsMap result{map_depth};
+
+    // Iterate over the multi dimensional array that holds the raw stats
+    for (std::size_t direction_index = 0; direction_index < CConnman::NUM_DIRECTIONS; direction_index++) {
+        for (int network_index = 0; network_index < NET_MAX; network_index++) {
+            for (std::size_t connection_index = 0; connection_index < NUM_CONNECTION_TYPES; connection_index++) {
+                for (std::size_t message_index = 0; message_index < (NUM_NET_MESSAGE_TYPES + 1); message_index++) {
+                    const CConnman::MsgStatsValue& raw_stats_value = raw_stats[direction_index][network_index][connection_index][message_index];
+                    std::vector<std::string> path{};
+                    // "result" is our multi-level map, we use path to keep track of where we are as we move down it
+
+                    std::string filter_name = "";
+
+                    for (unsigned int i = 0; i < num_filters; i++) {
+                        StatsFilter filter = filters[i];
+
+                        // get the filter_name, which tells us which subtree to move into
+                        if (filter == StatsFilter::MESSAGE_TYPE) {
+                            if (message_index == NUM_NET_MESSAGE_TYPES) {
+                                filter_name = "other"; // instead of *other*
+                            } else {
+                                filter_name = getAllNetMessageTypes()[message_index];
+                            }
+                        } else if (filter == StatsFilter::CONNECTION_TYPE) {
+                            filter_name = ConnectionTypeAsString(static_cast<ConnectionType>(connection_index));
+                        } else if (filter == StatsFilter::NETWORK_TYPE) {
+                            filter_name = GetNetworkName(static_cast<Network>(network_index));
+                        } else {
+                            if (direction_index == 0) {
+                                filter_name = "sent";
+                            }
+                            else {
+                                filter_name = "received";
+                            }
+                        }
+                        path.push_back(filter_name);
+                    }
+
+                    if (path.size() == 0) {
+                        path.push_back("total");
+                    }
+
+                    CConnman::MsgStatsValue* v = result.get_value(path);
+
+                    if (v == nullptr) {
+                        *v = CConnman::MsgStatsValue{raw_stats_value.msg_count, raw_stats_value.byte_count};
+                    } else if (raw_stats_value.byte_count > 0) {
+                        v->msg_count += raw_stats_value.msg_count;
+                        v->byte_count += raw_stats_value.byte_count;
+                    } else {
+                    }
+                }
+            }
+        }
+    }
+    return result.to_univalue();
+}
+
 static RPCHelpMan getnettotals()
 {
     return RPCHelpMan{"getnettotals",
