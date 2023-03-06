@@ -859,6 +859,16 @@ public:
     // Number of elements in `Direction`.
     static constexpr size_t NUM_DIRECTIONS{2};
 
+    struct MsgStatsValue {
+        int msg_count;
+        uint64_t byte_count;
+    };
+
+    using Stats = std::array<std::array<std::array<std::array<MsgStatsValue, NUM_NET_MESSAGE_TYPES + 1>, // add 1 for the other message type
+                                                   NUM_CONNECTION_TYPES>,
+                                        NET_MAX>,
+                             NUM_DIRECTIONS>;
+
     /** Get a unique deterministic randomizer. */
     CSipHasher GetDeterministicRandomizer(uint64_t id) const;
 
